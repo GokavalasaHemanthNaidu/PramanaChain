@@ -1,0 +1,400 @@
+# -*- coding: utf-8 -*-
+"""
+main.py — FastAPI entry point & API endpoints for TrustLens Full-Stack.
+Serves as the backend for the Next.js React web application.
+"""
+import base64
+import io
+import os
+import logging
+from typing import Optional, Dict, Any
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, EmailStr
+from PIL import Image
+
+# Import local utilities
+from utils import auth, crypto_signer, hashing, db_client, ml_classifier, ela_detector
+from models.document import DocumentModel
+
+# Setup Logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("trustlens_backend")
+
+app = FastAPI(
+    title="TrustLens Secure Backend",
+    description="High-performance FastAPI endpoint for TrustLens Document Trust Chain & Forgery Detection.",
+    version="1.5.0"
+)
+
+# CORS configurations — allows Next.js frontend on localhost:3000 to interact with it
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # For dev simplicity; restrict to specific domains in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ── Pydantic Schemas ───────────────────────────────────────────────────────────
+class AuthRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+class VerifyResponse(BaseModel):
+    success: bool
+    document: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+
+# ── API Endpoints ──────────────────────────────────────────────────────────────
+
+@app.get("/")
+def home():
+    return {
+        "status": "online",
+        "app": "TrustLens Backend",
+        "version": "1.5.0",
+        "endpoints": ["/api/auth/signup", "/api/auth/login", "/api/upload", "/api/verify", "/api/verify/image", "/api/analytics"]
+    }
+
+# ── Authentication ──
+
+@app.post("/api/auth/signup")
+def signup(payload: AuthRequest):
+    result, err = auth.sign_up(payload.email, payload.password)
+    if err:
+        return {"success": False, "error": err}
+    return {
+        "success": True,
+        "user": {
+            "id": result.user.id,
+            "email": result.user.email
+        }
+    }
+
+@app.post("/api/auth/login")
+def login(payload: AuthRequest):
+    result, err = auth.sign_in(payload.email, payload.password)
+    if err:
+        return {"success": False, "error": err}
+    return {
+        "success": True,
+        "user": {
+            "id": result.user.id,
+            "email": result.user.email
+        }
+    }
+
+# ── Secure Upload & Anchoring ──
+
+@app.post("/api/upload")
+async def upload_document(
+    user_id: str = Form(...),
+    override_type: Optional[str] = Form(""),
+    file: UploadFile = File(...)
+):
+    try:
+        # 1. Read file bytes and convert to PIL Image
+        bytes_data = await file.read()
+        image = Image.open(io.BytesIO(bytes_data)).convert("RGB")
+        
+        # 2. Universal AI Extraction
+        ai_result = ml_classifier.analyze_document(image, file.filename)
+        flat = ml_classifier.flatten_for_db(ai_result, override_type.strip() if override_type else "")
+        
+        # 3. Create SHA-256 Content Fingerprint
+        content_hash = hashing.create_hash(flat)
+        
+        # 4. Generate ECDSA Signature and Keypair
+        priv, pub = crypto_signer.generate_keypair()
+        sig = crypto_signer.sign_hash(content_hash, priv)
+        
+        # 5. Upload original image to Cloudinary storage
+        image_url = db_client.upload_image_to_storage(user_id, bytes_data, file.filename)
+        if not image_url:
+            raise HTTPException(status_code=500, detail="Failed to upload image to storage.")
+            
+        # 6. Save document record to MongoDB Ledger
+        doc_model = DocumentModel(
+            user_id=user_id,
+            image_url=image_url,
+            extracted_fields=flat,
+            content_hash=content_hash,
+            digital_signature=sig,
+            did_public_key=pub
+        )
+        saved = db_client.save_document_record(doc_model)
+        
+        return {
+            "success": True,
+            "document": {
+                "id": doc_model.id or (saved["id"] if saved else ""),
+                "image_url": image_url,
+                "extracted_fields": flat,
+                "content_hash": content_hash,
+                "created_at": doc_model.created_at or ""
+            }
+        }
+    except Exception as e:
+        logger.error(f"Upload API failed: {e}")
+        return {"success": False, "error": str(e)}
+
+# ── Public Verification ──
+
+@app.get("/api/verify")
+def verify_document(
+    query: str = Query(...),
+    doc_type: Optional[str] = Query("all")
+):
+    query = query.strip()
+    if not query:
+        return {"success": False, "error": "Search query cannot be empty."}
+        
+    doc_record = None
+    
+    # 1. Direct ID lookup
+    if len(query) >= 32:
+        doc_record = db_client.get_document_by_id(query)
+        
+    # 2. Database search
+    if not doc_record:
+        results = db_client.search_documents(
+            search_term=query.lower(),
+            doc_type_filter=doc_type,
+            limit=1
+        )
+        if results:
+            doc_record = results[0]
+            
+    # 3. Fuzzy fallback search across all docs
+    if not doc_record:
+        import difflib
+        all_docs = db_client.get_all_documents(limit=500)
+        best_ratio = 0.0
+        best_doc = None
+        for d in all_docs:
+            ex = d.get("extracted_fields") or {}
+            for cand in [ex.get("name",""), ex.get("document_id",""), ex.get("doc_type","")]:
+                if not cand:
+                    continue
+                r = difflib.SequenceMatcher(None, query.lower(), cand.lower()).ratio()
+                if r > best_ratio:
+                    best_ratio = r
+                    best_doc = d
+        if best_ratio >= 0.6:
+            doc_record = best_doc
+            
+    if not doc_record:
+        return {"success": False, "error": "No matching document found in the verified ledger."}
+        
+    # Standardize result fields for UI rendering
+    return {
+        "success": True,
+        "document": {
+            "id": doc_record.get("id") or str(doc_record.get("_id", "")),
+            "user_id": doc_record.get("user_id", ""),
+            "image_url": doc_record.get("image_url", ""),
+            "extracted_fields": doc_record.get("extracted_fields", {}),
+            "content_hash": doc_record.get("content_hash", ""),
+            "digital_signature": doc_record.get("digital_signature", ""),
+            "did_public_key": doc_record.get("did_public_key", ""),
+            "created_at": doc_record.get("created_at", "")
+        }
+    }
+
+# ── Forgery & Image ELA Scan ──
+
+@app.post("/api/verify/image")
+async def verify_image_forgery(
+    file: UploadFile = File(...)
+):
+    try:
+        bytes_data = await file.read()
+        image = Image.open(io.BytesIO(bytes_data)).convert("RGB")
+        
+        # 1. Run AI Extract to check fields
+        ai_result = ml_classifier.analyze_document(image, file.filename)
+        
+        # 2. Run Forensic Deepfake and ELA check
+        _, mean_err, heatmap = ela_detector.calculate_ela(image)
+        meta = ela_detector.audit_metadata(image)
+        forgery = ela_detector.assess_forgery_risk(mean_err, meta, file.filename)
+        
+        # 3. Convert ELA Hot Heatmap to Base64 so frontend can render it instantly
+        buffered = io.BytesIO()
+        heatmap.save(buffered, format="JPEG", quality=95)
+        heatmap_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
+        
+        # 4. ledger lookup & comparison
+        import difflib
+        entities = ai_result.get("entities", {})
+        doc_type_up = ai_result.get("document_type", "Document")
+        
+        def _val(field):
+            v = entities.get(field, "")
+            return v.get("value", "") if isinstance(v, dict) else (v or "")
+
+        name_up = _val("name")
+        id_up = _val("document_id")
+        
+        doc_record = None
+        best_ratio = 0.0
+
+        # Strategy 1: exact document_id match
+        if id_up:
+            doc_record = db_client.search_by_document_id(id_up)
+            if doc_record:
+                best_ratio = 1.0
+
+        # Strategy 2: fuzzy name match within detected doc type
+        if not doc_record and name_up:
+            kw = doc_type_up.split()[0] if doc_type_up else ""
+            candidates = db_client.search_by_doc_type(kw, limit=200)
+            for d in candidates:
+                sname = (d.get("extracted_fields") or {}).get("name", "")
+                r = difflib.SequenceMatcher(None, name_up.lower(), sname.lower()).ratio()
+                if r > best_ratio:
+                    best_ratio = r
+                    doc_record = d
+            if best_ratio < 0.55:
+                doc_record = None
+                
+        ledger_comparison = {}
+        if doc_record:
+            stored_ex = doc_record.get("extracted_fields") or {}
+            stored_name = stored_ex.get("name", "")
+            stored_id = stored_ex.get("document_id", "")
+            stored_type = stored_ex.get("doc_type", "")
+
+            # Fuzzy name match check
+            name_match_ratio = difflib.SequenceMatcher(None, name_up.lower(), stored_name.lower()).ratio()
+            name_match = name_match_ratio >= 0.75
+
+            # ID and doc type checks
+            id_match = (id_up.replace(" ", "") == stored_id.replace(" ", "")) if (id_up and stored_id) else True
+            type_match = doc_type_up.lower().split()[0] in stored_type.lower() if doc_type_up else True
+
+            # Cryptographic checks
+            # Recalculate hash and check ECDSA signature
+            recalc_hash = hashing.create_hash(stored_ex)
+            hash_valid = (recalc_hash == doc_record.get("content_hash", ""))
+            
+            sig_valid = False
+            try:
+                sig_valid = crypto_signer.verify_signature(
+                    recalc_hash, doc_record.get("digital_signature", ""), doc_record.get("did_public_key", "")
+                )
+            except Exception as sig_err:
+                logger.error(f"Signature verification error in API: {sig_err}")
+
+            fields_ok = name_match and id_match
+            crypto_ok = hash_valid and sig_valid
+            
+            status = "authentic" if (fields_ok and crypto_ok) else "tampered"
+            
+            ledger_comparison = {
+                "status": status,
+                "match_chance": round(name_match_ratio * 100, 1),
+                "stored_record": {
+                    "id": doc_record.get("id") or str(doc_record.get("_id", "")),
+                    "user_id": doc_record.get("user_id", ""),
+                    "image_url": doc_record.get("image_url", ""),
+                    "extracted_fields": stored_ex,
+                    "content_hash": doc_record.get("content_hash", ""),
+                    "digital_signature": doc_record.get("digital_signature", ""),
+                    "did_public_key": doc_record.get("did_public_key", ""),
+                    "created_at": doc_record.get("created_at", "")
+                },
+                "field_comparison": {
+                    "name": {
+                        "uploaded": name_up,
+                        "stored": stored_name,
+                        "match": name_match
+                    },
+                    "document_id": {
+                        "uploaded": id_up,
+                        "stored": stored_id,
+                        "match": id_match
+                    },
+                    "doc_type": {
+                        "uploaded": doc_type_up,
+                        "stored": stored_type,
+                        "match": type_match
+                    }
+                },
+                "crypto_audit": {
+                    "hash_valid": hash_valid,
+                    "signature_valid": sig_valid
+                }
+            }
+        else:
+            ledger_comparison = {
+                "status": "not_found",
+                "match_chance": 0.0,
+                "stored_record": None,
+                "field_comparison": {
+                    "name": {"uploaded": name_up, "stored": "", "match": False},
+                    "document_id": {"uploaded": id_up, "stored": "", "match": False},
+                    "doc_type": {"uploaded": doc_type_up, "stored": "", "match": False}
+                },
+                "crypto_audit": {
+                    "hash_valid": False,
+                    "signature_valid": False
+                }
+            }
+
+        return {
+            "success": True,
+            "filename": file.filename,
+            "ai_result": ai_result,
+            "forgery_result": forgery,
+            "metadata_audit": meta,
+            "heatmap_image": f"data:image/jpeg;base64,{heatmap_base64}",
+            "ledger_comparison": ledger_comparison
+        }
+    except Exception as e:
+        logger.error(f"Image forensic scan failed: {e}")
+        return {"success": False, "error": str(e)}
+
+# ── User Dashboard Analytics ──
+
+@app.get("/api/analytics")
+def get_user_analytics(user_id: str = Query(...)):
+    try:
+        docs = db_client.get_user_documents(user_id)
+        total = len(docs)
+        
+        # Calculate doc type frequencies
+        categories = {}
+        languages = {}
+        for d in docs:
+            ex = d.get("extracted_fields") or {}
+            dt = ex.get("doc_type", "Unknown")
+            categories[dt] = categories.get(dt, 0) + 1
+            
+            lang = ex.get("language", "english")
+            languages[lang] = languages.get(lang, 0) + 1
+            
+        return {
+            "success": True,
+            "total_documents": total,
+            "categories": categories,
+            "languages": languages,
+            "documents": [
+                {
+                    "id": d.get("id") or str(d.get("_id", "")),
+                    "doc_type": (d.get("extracted_fields") or {}).get("doc_type", "Document"),
+                    "name": (d.get("extracted_fields") or {}).get("name", ""),
+                    "document_id": (d.get("extracted_fields") or {}).get("document_id", ""),
+                    "created_at": d.get("created_at", "")[:10] if d.get("created_at") else ""
+                }
+                for d in docs
+            ]
+        }
+    except Exception as e:
+        logger.error(f"Analytics API failed: {e}")
+        return {"success": False, "error": str(e)}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

@@ -1,0 +1,37 @@
+# Dependency directories
+node_modules/
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+# Environments & Variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+frontend/.env
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.production.local
+backend/.env
+
+# Python / FastAPI
+backend/__pycache__/
+backend/*.pyc
+backend/*.pyo
+backend/*.pyd
+backend/.pytest_cache/
+backend/venv/
+backend/env/
+.venv/
+venv/
+env/
+
+# System / Cache / Logs
+.DS_Store
+*.log
+Thumbs.db
+.idea/
+.vscode/
+frontend/.eslintcache

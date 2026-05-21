@@ -1,0 +1,424 @@
+# -*- coding: utf-8 -*-
+"""
+Universal AI Document Intelligence Module
+Architecture: Donut (Document Understanding Transformer) via HuggingFace API
+Fallback:     Keyword/layout heuristic classifier + EasyOCR (multi-language)
+OCR Support:  English, Hindi (Devanagari), Telugu, Tamil, Kannada
+Output:       Structured JSON with per-field confidence scores
+"""
+import io
+import re
+import time
+import logging
+import requests
+from PIL import Image
+from typing import Dict, Any, Tuple, Optional
+from . import ocr_processor
+
+logger = logging.getLogger(__name__)
+
+# ── HuggingFace Endpoints ──────────────────────────────────────────────────────
+# Donut: zero-shot document understanding (no OCR needed)
+DONUT_API  = "https://api-inference.huggingface.co/models/naver-clova-ix/donut-base-finetuned-docvqa"
+# CORD receipt model (good for invoices)
+CORD_API   = "https://api-inference.huggingface.co/models/naver-clova-ix/donut-base-finetuned-cord-v2"
+# Custom trained model (LayoutLMv3 fine-tuned)
+ID_API     = "https://api-inference.huggingface.co/models/hemanthnaidug/my-trustlens-model"
+
+def _get_hf_token() -> str:
+    try:
+        import streamlit as st
+        token = st.secrets.get("HF_TOKEN", "")
+        if token and token != "hf_REPLACE_WITH_YOUR_HUGGINGFACE_TOKEN":
+            return token
+    except Exception:
+        pass
+    import os
+    return os.getenv("HF_TOKEN", "")
+
+def _img_to_bytes(image: Image.Image) -> bytes:
+    buf = io.BytesIO()
+    image.convert("RGB").save(buf, format="JPEG", quality=95)
+    buf.seek(0)
+    return buf.read()
+
+def _hf_post(api_url: str, image_bytes: bytes, token: str,
+             payload: Optional[Dict] = None, timeout: int = 40) -> Optional[Any]:
+    """POST to any HuggingFace Inference API endpoint."""
+    headers = {"Authorization": f"Bearer {token}"}
+    try:
+        if payload:
+            import json
+            resp = requests.post(api_url, headers=headers,
+                                 data=json.dumps(payload), timeout=timeout)
+        else:
+            resp = requests.post(api_url, headers=headers,
+                                 data=image_bytes, timeout=timeout)
+
+        if resp.status_code == 503:          # Model cold-starting
+            logger.info("Model loading, waiting 15s...")
+            time.sleep(15)
+            resp = requests.post(api_url, headers=headers,
+                                 data=image_bytes, timeout=timeout)
+
+        if resp.status_code == 200:
+            return resp.json()
+        logger.warning(f"HF API {api_url} → {resp.status_code}: {resp.text[:120]}")
+    except Exception as e:
+        logger.error(f"HF POST error: {e}")
+    return None
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# LAYER 1 — ML Classification (Indian IDs: Aadhaar, PAN, Passport, Voter, DL)
+# ══════════════════════════════════════════════════════════════════════════════
+_ID_MAP = {
+    "aadhaar": "Aadhaar Card", "aadhar": "Aadhaar Card",
+    "pan":     "PAN Card",     "pan_card": "PAN Card",
+    "passport":"Passport",
+    "voter":   "Voter ID",     "voter_id":  "Voter ID",
+    "driving": "Driving License", "dl": "Driving License",
+}
+
+def _classify_indian_id(image_bytes: bytes, token: str) -> Tuple[str, float]:
+    result = _hf_post(ID_API, image_bytes, token)
+    if result and isinstance(result, list):
+        top = result[0]
+        raw   = top.get("label", "").lower()
+        score = round(top.get("score", 0.0) * 100, 1)
+        for k, v in _ID_MAP.items():
+            if k in raw:
+                return v, score
+    return "", 0.0
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# LAYER 2 — Donut VQA (ask the document direct questions)
+# ══════════════════════════════════════════════════════════════════════════════
+def _donut_ask(image_bytes: bytes, token: str, question: str) -> Tuple[str, float]:
+    """Ask Donut a natural-language question about the document."""
+    payload = {"inputs": {"image": image_bytes.hex(), "question": question}}
+    # DocVQA API takes image + question as multipart — use raw bytes + param
+    headers = {"Authorization": f"Bearer {token}"}
+    try:
+        files = {"file": ("doc.jpg", image_bytes, "image/jpeg")}
+        data  = {"question": question}
+        resp  = requests.post(DONUT_API, headers=headers,
+                              files=files, data=data, timeout=40)
+        if resp.status_code == 503:
+            time.sleep(15)
+            resp = requests.post(DONUT_API, headers=headers,
+                                 files=files, data=data, timeout=40)
+        if resp.status_code == 200:
+            j = resp.json()
+            if isinstance(j, list) and j:
+                answer = j[0].get("answer", "")
+                score  = round(j[0].get("score", 0.0) * 100, 1)
+                return answer, score
+    except Exception as e:
+        logger.warning(f"Donut VQA error: {e}")
+    return "", 0.0
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# LAYER 3 — Keyword / Layout heuristic fallback (works without API)
+# ══════════════════════════════════════════════════════════════════════════════
+_KEYWORD_RULES = [
+    # 1. Highly specific educational & professional documents FIRST
+    (["10th", "secondary school certificate", "ssc", "matriculation"], "10th Marksheet"),
+    (["12th", "higher secondary", "hsc", "intermediate"],    "12th Marksheet"),
+    (["semester", "grade card", "btech", "degree", "university"], "Semester Grade Card"),
+    (["marksheet", "mark sheet", "examination", "result",
+      "grade", "cgpa", "sgpa"],                              "Marksheet / Result"),
+    (["certificate", "awarded", "completion", "participation",
+      "this is to certify", "internship", "experience"],     "Certificate"),
+    (["admit card", "hall ticket", "roll number",
+      "examination centre"],                                 "Admit Card"),
+    (["identity card", "id card", "reg no", "roll no"],      "Identity Card"),
+
+    # 2. Government IDs (checked later — Aadhaar/PAN often printed ON marksheets)
+    (["aadhaar", "unique identification", "uidai"],          "Aadhaar Card"),
+    (["permanent account number", "income tax department"],  "PAN Card"),
+    (["passport", "republic of india", "nationality"],       "Passport"),
+    (["election commission", "voter", "epic"],               "Voter ID"),
+    (["driving licence", "transport", "motor vehicle"],      "Driving License"),
+
+    # 3. Financial & Legal
+    (["invoice", "invoice no", "gst", "bill to", "hsn"],     "Invoice / Receipt"),
+    (["bank statement", "account no", "ifsc", "debit",
+      "credit", "balance", "transaction"],                   "Bank Statement"),
+    (["resume", "curriculum vitae", "objective", "skills",
+      "experience", "education", "projects"],                "Resume / CV"),
+    (["legal", "affidavit", "notary", "whereby",
+      "hereinafter"],                                        "Legal Document"),
+
+    # ── HINDI (Devanagari script) keywords ───────────────────────────────────
+    # आधार = Aadhaar, पैन = PAN, पासपोर्ट = Passport, मतदाता = Voter
+    (["आधार", "भारतीय विशिष्ट", "यूआईडीएआई"],              "Aadhaar Card"),
+    (["स्थायी खाता संख्या", "आयकर विभाग"],                   "PAN Card"),
+    (["पासपोर्ट", "भारत गणराज्य"],                           "Passport"),
+    (["मतदाता", "निर्वाचन आयोग"],                            "Voter ID"),
+    (["अंक पत्र", "परीक्षा", "परिणाम", "अंक"],               "Marksheet / Result"),
+    (["प्रमाण पत्र", "प्रमाणित"],                             "Certificate"),
+    (["बैंक विवरण", "खाता संख्या"],                          "Bank Statement"),
+
+    # ── TELUGU (Telugu script) keywords ──────────────────────────────────────
+    # ఆధార్ = Aadhaar, పాస్‌పోర్ట్ = Passport, మతదారు = Voter
+    (["ఆధార్", "యుఐడిఎఐ"],                                  "Aadhaar Card"),
+    (["శాశ్వత ఖాతా సంఖ్య", "ఆదాయపు పన్ను"],                 "PAN Card"),
+    (["పాస్‌పోర్ట్", "భారత గణతంత్రం"],                       "Passport"),
+    (["మతదారు గుర్తింపు", "ఎన్నికల సంఘం"],                   "Voter ID"),
+    (["మార్కు జాబితా", "పరీక్ష", "ఫలితం"],                   "Marksheet / Result"),
+    (["ధృవీకరణ పత్రం", "సర్టిఫికేట్"],                       "Certificate"),
+    (["బ్యాంక్ స్టేట్‌మెంట్", "ఖాతా నంబర్"],                 "Bank Statement"),
+
+    # ── TAMIL (Tamil script) keywords ─────────────────────────────────────────
+    # ஆதார் = Aadhaar, கடவுச்சீட்டு = Passport, வாக்காளர் = Voter
+    (["ஆதார்", "யுஐடிஏஐ"],                                  "Aadhaar Card"),
+    (["நிரந்தர கணக்கு எண்", "வருமான வரி"],                   "PAN Card"),
+    (["கடவுச்சீட்டு", "இந்தியக் குடியரசு"],                  "Passport"),
+    (["வாக்காளர்", "தேர்தல் ஆணையம்"],                        "Voter ID"),
+    (["மதிப்பெண் பட்டியல்", "தேர்வு", "முடிவு"],             "Marksheet / Result"),
+    (["சான்றிதழ்", "தகுதி"],                                 "Certificate"),
+    (["வங்கி அறிக்கை", "கணக்கு எண்"],                        "Bank Statement"),
+]
+
+def _keyword_classify(text: str) -> Tuple[str, float]:
+    tl = text.lower()
+    for keywords, label in _KEYWORD_RULES:
+        hits = sum(1 for kw in keywords if kw in tl)
+        if hits > 0:
+            if label in ["10th Marksheet", "12th Marksheet", "Semester Grade Card", "Aadhaar Card", "PAN Card", "Passport", "Voter ID", "Driving License", "Identity Card", "Admit Card"]:
+                conf = min(75.0 + hits * 5, 92.0)
+                
+                # Dynamic Semester Extraction
+                if label == "Semester Grade Card":
+                    sem_match = re.search(r'(?i)\b(1st|2nd|3rd|4th|5th|6th|7th|8th|first|second|third|fourth|fifth|sixth|seventh|eighth|i|ii|iii|iv|v|vi|vii|viii)\s*sem(?:ester)?', text)
+                    if sem_match:
+                        label = f"{sem_match.group(1).title()} Semester Grade Card"
+                        
+                return label, conf
+                
+            if hits >= 2 or len(keywords) == 1:
+                conf = min(60 + hits * 8, 88)
+                return label, float(conf)
+    return "Document", 40.0
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# LAYER 4 — Dynamic NER-style field extraction (doc-type-aware)
+# ══════════════════════════════════════════════════════════════════════════════
+def _extract_name(text: str) -> Tuple[str, float]:
+    # CRITICAL FIX: Filter out lines with Father/Mother/Spouse to avoid misidentification
+    clean_lines = []
+    for line in text.split('\n'):
+        if not re.search(r'(?i)(father|mother|spouse|s/o|d/o|w/o|guardian)', line):
+            clean_lines.append(line)
+    clean_text = '\n'.join(clean_lines)
+
+    patterns = [
+        r'(?im)^(?:Name|Student Name|Applicant|Customer|Patient|Employee)'
+        r'[^a-zA-Z\n]{0,5}([A-Za-z][A-Za-z\s\.]{2,40})$',
+        r'(?i)(?:Name|Surname(?:\s*/\s*Given Name)?)[\s:\-]+([A-Z][A-Za-z\s\.]{2,35})',
+    ]
+    for p in patterns:
+        m = re.search(p, clean_text)
+        if m:
+            val = m.group(1).strip()
+            # Strip trailing metadata like Roll No, Reg No, etc.
+            val = re.sub(r'(?i)\s*(Roll No\.?|Reg(?:istration)? No\.?|ID No\.?).*$', '', val).strip()
+            if len(val.split()) >= 2:
+                return val.title(), 88.0
+    # ALL-CAPS line fallback (Aadhaar style)
+    m = re.search(r'\n([A-Z]{2}[A-Z\s]{3,30})\n', clean_text)
+    if m:
+        skip = {"GOVERNMENT OF INDIA", "INCOME TAX DEPARTMENT",
+                "ELECTION COMMISSION", "UNIQUE IDENTIFICATION",
+                "REPUBLIC OF INDIA", "NATIONAL INSTITUTE"}
+        candidate = m.group(1).strip()
+        if candidate not in skip and len(candidate.split()) >= 2:
+            return candidate.title(), 75.0
+    return "", 0.0
+
+def _extract_id(text: str, doc_type: str) -> Tuple[str, float]:
+    dt = doc_type.lower()
+    patterns = []
+    if "aadhaar" in dt or "aadhar" in dt:
+        patterns = [(r'\b(\d{4}\s?\d{4}\s?\d{4})\b', 95.0)]
+    elif "pan" in dt:
+        patterns = [(r'\b([A-Z]{5}[0-9]{4}[A-Z])\b', 97.0)]
+    elif "passport" in dt:
+        patterns = [(r'\b([A-Z][0-9]{7})\b', 94.0)]
+    elif "voter" in dt:
+        patterns = [(r'\b([A-Z]{3}[0-9]{7})\b', 92.0)]
+    elif "driving" in dt:
+        patterns = [(r'\b([A-Z]{2}[0-9]{2}\s?[0-9]{11})\b', 90.0)]
+    else:
+        patterns = [
+            (r'(?i)(?:Roll\s*No|Reg(?:istration)?\s*No|ID\s*No'
+             r'|Invoice\s*No|Account\s*No)[^\w\n]{0,5}([A-Za-z0-9\-\/]+)', 78.0),
+            (r'(?i)(?:No\.|Number|Roll|ID)[\s:\-]+([A-Za-z0-9\-]{4,20})', 65.0),
+        ]
+    for pat, conf in patterns:
+        m = re.search(pat, text)
+        if m:
+            return m.group(1).replace(" ", ""), conf
+    return "", 0.0
+
+def _extract_dates(text: str) -> Dict[str, Tuple[str, float]]:
+    dates = {"dob": ("", 0.0), "date_of_issue": ("", 0.0), "validity": ("", 0.0)}
+    # DOB
+    m_dob = re.search(r'(?i)(?:D\.?O\.?B\.?|Date\s*of\s*Birth|Born)[^\d]{0,8}(\d{2}[/\-]\d{2}[/\-]\d{4}|\d{4}[/\-]\d{2}[/\-]\d{2})', text)
+    if m_dob: dates["dob"] = (m_dob.group(1), 85.0)
+    
+    # Date of Issue / Dated
+    m_issue = re.search(r'(?i)(?:Date\s*of\s*Issue|Issued?\s*On|Dated?)[^\d]{0,8}(\d{2}[/\-]\d{2}[/\-]\d{4}|\d{4}[/\-]\d{2}[/\-]\d{2})', text)
+    if m_issue: dates["date_of_issue"] = (m_issue.group(1), 80.0)
+    
+    # Validity
+    m_val = re.search(r'(?i)(?:Valid\s*(?:Till|Thru|Until)|Expiry\s*Date)[^\d]{0,8}(\d{2}[/\-]\d{2}[/\-]\d{4}|\d{4}[/\-]\d{2}[/\-]\d{2})', text)
+    if m_val: dates["validity"] = (m_val.group(1), 80.0)
+    
+    # Fallback generic Date if issue isn't found
+    if not dates["date_of_issue"][0]:
+        m_gen = re.search(r'(?i)(?:Date)[^\d]{0,8}(\d{2}[/\-]\d{2}[/\-]\d{4}|\d{4}[/\-]\d{2}[/\-]\d{2})', text)
+        if m_gen: dates["date_of_issue"] = (m_gen.group(1), 60.0)
+        
+    return dates
+
+def _extract_amount(text: str) -> Tuple[str, float]:
+    m = re.search(
+        r'(?i)(?:Total|Grand Total|Amount\s*Due|Rs\.?|INR|₹)\s*[:\-]?\s*([\d,]+\.?\d{0,2})',
+        text
+    )
+    if m:
+        return m.group(1).strip(), 82.0
+    return "", 0.0
+
+def _extract_address(text: str) -> Tuple[str, float]:
+    m = re.search(
+        r'(?i)(?:Address|Addr\.?)[:\-\s]+([A-Za-z0-9\s,\.\-\/]+(?:\n[A-Za-z0-9\s,\.\-\/]+)?)',
+        text
+    )
+    if m:
+        return m.group(1).strip()[:120], 72.0
+    return "", 0.0
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# MASTER PIPELINE
+# ══════════════════════════════════════════════════════════════════════════════
+def analyze_document(image: Image.Image, filename: str = "") -> Dict[str, Any]:
+    """
+    Universal Document Intelligence Pipeline.
+    OCR: EasyOCR (English + Hindi + Telugu + Tamil + Kannada) with Tesseract fallback.
+
+    Returns:
+    {
+      "document_type": "Aadhaar Card",
+      "confidence":    96.3,
+      "ml_used":       True,
+      "language":      "telugu",
+      "entities": {
+        "name":        {"value": "Hemanth Naidu",  "confidence": 88.0},
+        "document_id": {"value": "225300234512",   "confidence": 95.0},
+        "date":        {"value": "05-05-2005",      "confidence": 85.0},
+        "amount":      {"value": "",               "confidence": 0.0},
+        "address":     {"value": "",               "confidence": 0.0},
+      }
+    }
+    """
+    result: Dict[str, Any] = {
+        "document_type": "Document",
+        "confidence":    0.0,
+        "ml_used":       False,
+        "language":      "english",
+        "entities":      {
+            "name":          {"value": "", "confidence": 0.0},
+            "document_id":   {"value": "", "confidence": 0.0},
+            "dob":           {"value": "", "confidence": 0.0},
+            "date_of_issue": {"value": "", "confidence": 0.0},
+            "validity":      {"value": "", "confidence": 0.0},
+            "amount":        {"value": "", "confidence": 0.0},
+            "address":       {"value": "", "confidence": 0.0},
+        }
+    }
+
+    token       = _get_hf_token()
+    image_bytes = _img_to_bytes(image)
+
+    # ── Stage 1: ML classification (Indian IDs) ────────────────────────────
+    if token:
+        ml_type, ml_conf = _classify_indian_id(image_bytes, token)
+        if ml_type and ml_conf >= 50.0:
+            result["document_type"] = ml_type
+            result["confidence"]    = ml_conf
+            result["ml_used"]       = True
+
+    # ── Stage 2: Multi-language OCR (EasyOCR → Tesseract fallback) ───────────
+    raw_text = ocr_processor.process_image(image)
+    detected_lang = ocr_processor.detect_language(raw_text)
+    result["language"] = detected_lang
+    logger.info(f"Detected script language: {detected_lang}")
+
+    # ── Stage 3: Keyword fallback if ML didn't fire ────────────────────────
+    if not result["ml_used"] and raw_text.strip():
+        kw_type, kw_conf = _keyword_classify(raw_text)
+        result["document_type"] = kw_type
+        result["confidence"]    = kw_conf
+
+    # ── Stage 4: Donut VQA for name (if ML is available) ──────────────────
+    name_val, name_conf = "", 0.0
+    if token:
+        name_val, name_conf = _donut_ask(image_bytes, token, "What is the name of the person?")
+    if not name_val:
+        name_val, name_conf = _extract_name(raw_text)
+
+    # ── Stage 5: Dynamic entity extraction ────────────────────────────────
+    id_val,   id_conf   = _extract_id(raw_text, result["document_type"])
+    date_dict           = _extract_dates(raw_text)
+    amt_val,  amt_conf  = _extract_amount(raw_text)
+    addr_val, addr_conf = _extract_address(raw_text)
+
+    # ── Stage 6: Fallbacks ─────────────────────────────────────────────────
+    if not name_val and filename:
+        if not re.search(r'(?i)(whatsapp|img_|screenshot|scan|untitled)', filename):
+            name_val  = filename.split(".")[0].replace("_", " ").title()
+            name_conf = 30.0
+    if not id_val:
+        id_val    = "TRU-" + str(int(time.time()))[-6:]
+        id_conf   = 0.0
+
+    # ── Assemble output ────────────────────────────────────────────────────
+    result["entities"] = {
+        "name":          {"value": name_val,  "confidence": name_conf},
+        "document_id":   {"value": id_val,    "confidence": id_conf},
+        "dob":           {"value": date_dict["dob"][0], "confidence": date_dict["dob"][1]},
+        "date_of_issue": {"value": date_dict["date_of_issue"][0], "confidence": date_dict["date_of_issue"][1]},
+        "validity":      {"value": date_dict["validity"][0], "confidence": date_dict["validity"][1]},
+        "amount":        {"value": amt_val,   "confidence": amt_conf},
+        "address":       {"value": addr_val,  "confidence": addr_conf},
+    }
+
+    return result
+
+
+def flatten_for_db(result: Dict[str, Any], manual_override: str = "") -> Dict[str, Any]:
+    """
+    Converts the rich result dict into a flat dict for DB storage.
+    """
+    e = result.get("entities", {})
+    return {
+        "doc_type":      manual_override if manual_override else result.get("document_type", "Document"),
+        "name":          e.get("name",          {}).get("value", ""),
+        "document_id":   e.get("document_id",   {}).get("value", ""),
+        "date":          e.get("date_of_issue", {}).get("value", "") or e.get("dob", {}).get("value", ""),
+        "dob":           e.get("dob",           {}).get("value", ""),
+        "date_of_issue": e.get("date_of_issue", {}).get("value", ""),
+        "validity":      e.get("validity",      {}).get("value", ""),
+        "amount":        e.get("amount",        {}).get("value", ""),
+        "address":       e.get("address",       {}).get("value", ""),
+        "ml_confidence": result.get("confidence", 0.0),
+        "ml_used":       result.get("ml_used", False),
+        "language":      result.get("language", "english"),   # ← NEW: detected script
+    }
