@@ -578,7 +578,7 @@ export default function VerifyForensicPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
                   {layers.map((layer, idx) => {
-                    const details = layer.getDetails(forensicData);
+                    const details = layer.getDetails(forensicData!);
                     const isSelected = selectedLayer === idx;
                     const Icon = layer.icon;
 
