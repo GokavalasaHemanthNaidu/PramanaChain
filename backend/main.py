@@ -91,6 +91,7 @@ def login(payload: AuthRequest):
 async def upload_document(
     user_id: str = Form(...),
     override_type: Optional[str] = Form(""),
+    force_anchor: Optional[bool] = Form(False),
     file: UploadFile = File(...)
 ):
     try:
@@ -98,30 +99,50 @@ async def upload_document(
         bytes_data = await file.read()
         image = Image.open(io.BytesIO(bytes_data)).convert("RGB")
         
-        # 2. Universal AI Extraction
+        # 2. Pre-Anchoring Forensic Check (ELA & Metadata Audit)
+        _, mean_err, _ = ela_detector.calculate_ela(image)
+        meta = ela_detector.audit_metadata(image)
+        forgery = ela_detector.assess_forgery_risk(mean_err, meta, file.filename)
+        
+        if forgery["risk_score"] >= 50.0 or forgery["risk_level"] == "HIGH":
+            if not force_anchor:
+                return {
+                    "success": False,
+                    "security_blocked": True,
+                    "error": "Security Rejection: Forensic indicators suggest this document is fake or tampered.",
+                    "forgery": forgery
+                }
+                
+        # 3. Universal AI Extraction
         ai_result = ml_classifier.analyze_document(image, file.filename)
         flat = ml_classifier.flatten_for_db(ai_result, override_type.strip() if override_type else "")
         
-        # 3. Create SHA-256 Content Fingerprint
+        # 4. Create SHA-256 Content Fingerprint
         content_hash = hashing.create_hash(flat)
         
-        # 4. Generate ECDSA Signature and Keypair
+        # 5. Generate ECDSA Signature and Keypair
         priv, pub = crypto_signer.generate_keypair()
         sig = crypto_signer.sign_hash(content_hash, priv)
         
-        # 5. Upload original image to Cloudinary storage
+        # 6. Upload original image to Cloudinary storage
         image_url = db_client.upload_image_to_storage(user_id, bytes_data, file.filename)
         if not image_url:
             raise HTTPException(status_code=500, detail="Failed to upload image to storage.")
             
-        # 6. Save document record to MongoDB Ledger
+        # 7. Save document record to MongoDB Ledger
         doc_model = DocumentModel(
             user_id=user_id,
             image_url=image_url,
             extracted_fields=flat,
             content_hash=content_hash,
             digital_signature=sig,
-            did_public_key=pub
+            did_public_key=pub,
+            forensics={
+                "risk_score": forgery["risk_score"],
+                "risk_level": forgery["risk_level"],
+                "details": forgery["details"],
+                "force_anchored": force_anchor and (forgery["risk_score"] >= 50.0 or forgery["risk_level"] == "HIGH")
+            }
         )
         saved = db_client.save_document_record(doc_model)
         

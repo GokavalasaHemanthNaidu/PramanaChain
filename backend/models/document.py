@@ -16,10 +16,11 @@ class DocumentModel:
     did_public_key: str
     id: Optional[str] = None
     created_at: Optional[str] = field(default_factory=lambda: datetime.utcnow().isoformat())
+    forensics: Optional[Dict[str, Any]] = None
     
     def to_dict(self) -> Dict[str, Any]:
-        """Convert the model to a dictionary for Supabase insertion."""
-        return {
+        """Convert the model to a dictionary for database insertion."""
+        res = {
             "user_id": self.user_id,
             "image_url": self.image_url,
             "extracted_fields": self.extracted_fields,
@@ -27,3 +28,6 @@ class DocumentModel:
             "digital_signature": self.digital_signature,
             "did_public_key": self.did_public_key
         }
+        if self.forensics is not None:
+            res["forensics"] = self.forensics
+        return res

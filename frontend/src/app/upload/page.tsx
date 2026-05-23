@@ -38,6 +38,12 @@ export default function UploadPage() {
   const [anchoredDoc, setAnchoredDoc] = useState<AnchoredDocument | null>(null);
   const [error, setError] = useState<string | null>(null);
   
+  // Security block state
+  const [securityBlocked, setSecurityBlocked] = useState(false);
+  const [forgeryDetails, setForgeryDetails] = useState<any | null>(null);
+  const [forceAnchor, setForceAnchor] = useState(false);
+  const [forceAnchorActive, setForceAnchorActive] = useState(false);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -106,6 +112,9 @@ export default function UploadPage() {
     formData.append("file", file);
     formData.append("user_id", userId);
     formData.append("override_type", overrideType);
+    if (forceAnchor) {
+      formData.append("force_anchor", "true");
+    }
 
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
     try {
@@ -125,9 +134,16 @@ export default function UploadPage() {
         setTimeout(() => {
           setAnchoredDoc(data.document);
           setLoading(false);
+          setForceAnchor(false);
+          setForceAnchorActive(false);
         }, 800);
       } else {
-        setError(data.error || "Failed to secure document in ledger.");
+        if (data.security_blocked) {
+          setSecurityBlocked(true);
+          setForgeryDetails(data.forgery);
+        } else {
+          setError(data.error || "Failed to secure document in ledger.");
+        }
         setLoading(false);
       }
     } catch (err) {
@@ -145,6 +161,10 @@ export default function UploadPage() {
     setError(null);
     setProgress(0);
     setProgressText("");
+    setSecurityBlocked(false);
+    setForgeryDetails(null);
+    setForceAnchor(false);
+    setForceAnchorActive(false);
   };
 
   return (
@@ -166,8 +186,99 @@ export default function UploadPage() {
 
         <AnimatePresence mode="wait">
           {!loading && !anchoredDoc ? (
+            securityBlocked && forgeryDetails ? (
+              /* Security Block Panel */
+              <motion.div
+                key="security-block"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="glass-panel p-8 rounded-3xl border-2 border-red-500/30 bg-red-950/20 shadow-[0_0_50px_-12px_rgba(239,68,68,0.25)] space-y-8"
+              >
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-red-500/10 border border-red-500/20 rounded-2xl p-5 text-red-400">
+                  <div className="flex items-start gap-4">
+                    <div className="p-2.5 bg-red-500/20 rounded-xl">
+                      <ShieldAlert className="h-6 w-6 animate-pulse" />
+                    </div>
+                    <div>
+                      <h3 className="font-extrabold text-lg text-red-500">CRITICAL SECURITY ALERT: Tampering Detected</h3>
+                      <p className="text-red-400/80 text-sm mt-0.5">Forensic indicators suggest this document is fake or tampered.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">Threat Level Indicator</h4>
+                    <div className="bg-slate-950/60 border border-white/5 rounded-2xl p-6 text-center space-y-4">
+                      <div className="text-5xl font-black text-red-500 drop-shadow-[0_0_15px_rgba(239,68,68,0.5)]">
+                        {forgeryDetails.risk_score}%
+                      </div>
+                      <div className="w-full bg-slate-800 rounded-full h-3 overflow-hidden border border-white/5">
+                        <div 
+                          className="bg-gradient-to-r from-orange-500 to-red-600 h-full rounded-full"
+                          style={{ width: `${Math.min(forgeryDetails.risk_score, 100)}%` }}
+                        ></div>
+                      </div>
+                      <p className="text-sm font-bold text-red-400 uppercase tracking-widest">
+                        RISK LEVEL: {forgeryDetails.risk_level}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">Forensic Breakdown</h4>
+                    <div className="bg-slate-950/60 border border-white/5 rounded-2xl p-5 space-y-3 h-full">
+                      <ul className="space-y-3">
+                        {forgeryDetails.details?.map((detail: string, idx: number) => (
+                          <li key={idx} className="flex items-start gap-3 text-sm text-slate-300">
+                            <ShieldAlert className="h-4 w-4 text-orange-500 shrink-0 mt-0.5" />
+                            <span>{detail}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row gap-4 items-center justify-between">
+                  <button
+                    onClick={() => {
+                      resetForm();
+                    }}
+                    className="w-full sm:w-auto px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-sm font-bold transition-all duration-200 cursor-pointer"
+                  >
+                    Cancel & Discard
+                  </button>
+                  
+                  <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
+                    <label className="flex items-center gap-2 text-sm text-slate-400 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={forceAnchorActive}
+                        onChange={(e) => setForceAnchorActive(e.target.checked)}
+                        className="rounded border-white/20 bg-slate-900 text-red-500 focus:ring-red-500/50 cursor-pointer h-4 w-4"
+                      />
+                      Administrative Bypass
+                    </label>
+                    <button
+                      onClick={() => {
+                        setForceAnchor(true);
+                        setSecurityBlocked(false);
+                        setTimeout(() => startAnchorProcess(), 50);
+                      }}
+                      disabled={!forceAnchorActive}
+                      className="w-full sm:w-auto px-6 py-3 bg-red-600/20 hover:bg-red-600/40 border border-red-500/30 text-red-400 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-sm font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer"
+                    >
+                      Force Anchor
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            ) : (
             /* Step 1: Upload Panel */
             <motion.div
+              key="upload-panel"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
@@ -283,6 +394,7 @@ export default function UploadPage() {
                 </div>
               </div>
             </motion.div>
+            )
           ) : loading ? (
             /* Step 2: Radial Scanning Progress Circle */
             <motion.div
