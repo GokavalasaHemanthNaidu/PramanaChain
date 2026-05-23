@@ -12,42 +12,15 @@ from typing import Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
 
-# ── Language sets ──────────────────────────────────────────────────────────────
-# EasyOCR language codes
-_LANG_SETS = {
-    "english":  ["en"],
-    "hindi":    ["en", "hi"],
-    "telugu":   ["en", "te"],
-    "tamil":    ["en", "ta"],
-    "kannada":  ["en", "kn"],
-    "auto":     ["en", "hi", "te", "ta"],   # detect all Indian scripts
-}
-
-# Cached EasyOCR readers (expensive to init — cache per language set)
-_readers: Dict[str, Any] = {}
-
-def _get_reader(lang_key: str = "auto"):
-    """Return a cached EasyOCR reader for the given language set."""
-    if lang_key not in _readers:
-        try:
-            import easyocr
-            langs = _LANG_SETS.get(lang_key, ["en", "hi", "te", "ta"])
-            logger.info(f"Initialising EasyOCR for languages: {langs}")
-            _readers[lang_key] = easyocr.Reader(langs, gpu=False, verbose=False)
-        except Exception as e:
-            logger.warning(f"EasyOCR init failed ({e}) — will use Tesseract fallback")
-            _readers[lang_key] = None
-    return _readers[lang_key]
-
+# ── Language sets (Legacy reference) ──────────────────────────────────────────
+# We no longer cache PyTorch local models to save 600MB RAM.
 
 def _detect_script(image: Image.Image) -> str:
     """
     Lightweight heuristic: scan pixel patterns to guess script family.
-    Returns a lang_key for _get_reader().
-    In practice, running 'auto' (all 4 scripts) is safe and only ~0.5s slower.
+    In the cloud API, we typically let the API auto-detect or use engine 2.
     """
-    # For now always return 'auto' — covers all Indian scripts
-    return "auto"
+    return "eng"
 
 
 def _preprocess(image: Image.Image) -> Image.Image:
@@ -58,24 +31,35 @@ def _preprocess(image: Image.Image) -> Image.Image:
     return img
 
 
-# ── Primary: EasyOCR ──────────────────────────────────────────────────────────
-def _easyocr_extract(image: Image.Image) -> str:
-    """Run EasyOCR and return concatenated text."""
-    lang_key = _detect_script(image)
-    reader   = _get_reader(lang_key)
-    if reader is None:
-        return ""
+# ── Primary: Cloud OCR Offload (0MB RAM) ──────────────────────────────────────
+def _external_ocr_extract(image: Image.Image) -> str:
+    """Run OCR.space Free API to offload heavy PyTorch processing."""
     try:
-        processed = _preprocess(image)
-        img_array = np.array(processed)
-        results   = reader.readtext(img_array, detail=1, paragraph=False)
-        # Sort results top-to-bottom (by y-coordinate of bounding box)
-        results.sort(key=lambda r: r[0][0][1])   # r[0] = bbox, [0][1] = top-left y
-        lines = [r[1] for r in results if r[2] >= 0.1]   # filter conf < 10%
-        return "\n".join(lines)
+        import io, requests
+        buf = io.BytesIO()
+        image.save(buf, format="JPEG", quality=85)
+        buf.seek(0)
+        
+        payload = {
+            'apikey': 'helloworld',
+            'language': 'eng',
+            'isOverlayRequired': False,
+            'OCREngine': 2,
+        }
+        res = requests.post(
+            'https://api.ocr.space/parse/image',
+            files={'filename': ('image.jpg', buf, 'image/jpeg')},
+            data=payload,
+            timeout=20
+        )
+        if res.status_code == 200:
+            result = res.json()
+            if not result.get("IsErroredOnProcessing"):
+                lines = [p.get("ParsedText", "") for p in result.get("ParsedResults", [])]
+                return "\n".join(lines).strip()
     except Exception as e:
-        logger.warning(f"EasyOCR extraction failed: {e}")
-        return ""
+        logger.warning(f"External Cloud OCR failed: {e}")
+    return ""
 
 
 # ── Fallback: Tesseract ───────────────────────────────────────────────────────
@@ -94,12 +78,12 @@ def _tesseract_extract(image: Image.Image) -> str:
 def process_image(image: Image.Image) -> str:
     """
     Extract text from a document image.
-    Tries EasyOCR first (multi-language), falls back to Tesseract.
+    Tries Free Cloud OCR API first, falls back to local Tesseract binary.
     Returns a single string of extracted text.
     """
-    text = _easyocr_extract(image)
+    text = _external_ocr_extract(image)
     if not text.strip():
-        logger.info("EasyOCR returned empty — trying Tesseract fallback")
+        logger.info("Cloud OCR returned empty — trying local Tesseract fallback")
         text = _tesseract_extract(image)
     return text
 
