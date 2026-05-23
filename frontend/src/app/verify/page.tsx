@@ -328,6 +328,8 @@ export default function VerifyForensicPage() {
     }
   ];
 
+  const activeDetails = forensicData ? layers[selectedLayer].getDetails(forensicData) : null;
+
   return (
     <div className="min-h-screen flex flex-col pb-16 bg-[#060913]">
       <Navbar />
@@ -637,7 +639,7 @@ export default function VerifyForensicPage() {
                         <span>{layers[selectedLayer].name}</span>
                       </h4>
                       <span className="text-[10px] text-slate-400 font-bold uppercase italic">
-                        {layers[selectedLayer].getDetails(forensicData).badge}
+                        {activeDetails?.badge}
                       </span>
                     </div>
                     
@@ -646,12 +648,12 @@ export default function VerifyForensicPage() {
                     </p>
 
                     <div className="space-y-2 pt-1">
-                      {layers[selectedLayer].getDetails(forensicData).points.map((pt, index) => (
+                      {activeDetails?.points.map((pt, index) => (
                         <div key={index} className="flex items-start gap-2 text-[11px] text-slate-400">
                           <div className={`mt-1.5 h-1.5 w-1.5 rounded-full shrink-0 ${
-                            layers[selectedLayer].getDetails(forensicData).status === "SUCCESS" || layers[selectedLayer].getDetails(forensicData).status === "VERIFIED"
+                            activeDetails?.status === "SUCCESS" || activeDetails?.status === "VERIFIED"
                               ? "bg-emerald-400"
-                              : layers[selectedLayer].getDetails(forensicData).status === "WARNING"
+                              : activeDetails?.status === "WARNING"
                                 ? "bg-yellow-400"
                                 : "bg-red-400"
                           }`} />
