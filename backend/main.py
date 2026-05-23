@@ -99,10 +99,11 @@ async def upload_document(
         bytes_data = await file.read()
         image = Image.open(io.BytesIO(bytes_data)).convert("RGB")
         
-        # 2. Pre-Anchoring Forensic Check (ELA & Metadata Audit)
+        # 2. Pre-Anchoring Forensic Check (ELA, Visual Heuristics & Metadata Audit)
         _, mean_err, _ = ela_detector.calculate_ela(image)
+        visual_metrics = ela_detector.detect_visual_heuristics(image)
         meta = ela_detector.audit_metadata(image)
-        forgery = ela_detector.assess_forgery_risk(mean_err, meta, file.filename)
+        forgery = ela_detector.assess_forgery_risk(mean_err, meta, file.filename, visual_metrics)
         
         if forgery["risk_score"] >= 50.0 or forgery["risk_level"] == "HIGH":
             if not force_anchor:
@@ -268,10 +269,11 @@ async def verify_image_forgery(
         # 1. Run AI Extract to check fields
         ai_result = ml_classifier.analyze_document(image, file.filename)
         
-        # 2. Run Forensic Deepfake and ELA check
+        # 2. Run Forensic Deepfake, ELA and Visual Heuristics check
         _, mean_err, heatmap = ela_detector.calculate_ela(image)
+        visual_metrics = ela_detector.detect_visual_heuristics(image)
         meta = ela_detector.audit_metadata(image)
-        forgery = ela_detector.assess_forgery_risk(mean_err, meta, file.filename)
+        forgery = ela_detector.assess_forgery_risk(mean_err, meta, file.filename, visual_metrics)
         
         # 3. Convert ELA Hot Heatmap to Base64 so frontend can render it instantly
         buffered = io.BytesIO()

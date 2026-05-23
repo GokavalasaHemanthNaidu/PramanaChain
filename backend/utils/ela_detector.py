@@ -122,8 +122,59 @@ def audit_metadata(image: Image.Image) -> Dict[str, Any]:
         
     return audit
 
+def detect_visual_heuristics(image: Image.Image) -> Dict[str, Any]:
+    """
+    Analyzes static visual heuristics using OpenCV (Moiré and Blur).
+    Returns a dictionary of metrics.
+    """
+    heuristics = {
+        "is_blurry": False,
+        "blur_variance": 0.0,
+        "has_moire": False,
+        "moire_magnitude": 0.0
+    }
+    if not OPENCV_AVAILABLE:
+        return heuristics
+        
+    try:
+        # Convert PIL to cv2 grayscale
+        img_np = np.array(image.convert("L"))
+        
+        # 1. Blur Detection (Variance of Laplacian)
+        laplacian_var = cv2.Laplacian(img_np, cv2.CV_64F).var()
+        heuristics["blur_variance"] = float(laplacian_var)
+        if laplacian_var < 50.0:  # Threshold for severe blur
+            heuristics["is_blurry"] = True
+            
+        # 2. Moiré Pattern Detection (FFT)
+        f = np.fft.fft2(img_np)
+        fshift = np.fft.fftshift(f)
+        magnitude_spectrum = 20 * np.log(np.abs(fshift) + 1e-8)
+        
+        rows, cols = img_np.shape
+        crow, ccol = rows // 2 , cols // 2
+        
+        mask = np.ones((rows, cols), np.uint8)
+        r = max(10, min(rows, cols) // 4)
+        mask[crow-r:crow+r, ccol-r:ccol+r] = 0
+        
+        high_freq = magnitude_spectrum * mask
+        high_freq_vals = high_freq[high_freq > 0]
+        
+        if len(high_freq_vals) > 0:
+            high_freq_mean = np.mean(high_freq_vals)
+            heuristics["moire_magnitude"] = float(high_freq_mean)
+            
+            if high_freq_mean > 165.0:  # Threshold for Moiré
+                heuristics["has_moire"] = True
+                
+    except Exception as e:
+        logger.warning(f"Error computing visual heuristics: {e}")
+        
+    return heuristics
 
-def assess_forgery_risk(mean_error: float, metadata: Dict[str, Any], filename: str = "") -> Dict[str, Any]:
+
+def assess_forgery_risk(mean_error: float, metadata: Dict[str, Any], filename: str = "", visual_metrics: Dict[str, Any] = None) -> Dict[str, Any]:
     """
     Computes a Forgery Risk Index using a fuzzy logic combination of
     ELA mean error density and Metadata auditing findings.
@@ -172,6 +223,16 @@ def assess_forgery_risk(mean_error: float, metadata: Dict[str, Any], filename: s
     if any(k in fn for k in ["screenshot", "whatsapp", "tele", "fb_", "edited", "crop", "modified"]):
         score += 10.0
         details.append("Filename suggests secondary source or screenshot transfer.")
+
+    # 4. Visual Heuristics (Moiré and Blur)
+    if visual_metrics:
+        if visual_metrics.get("has_moire"):
+            score += 30.0
+            details.append(f"Screen Recapture Detected: High-frequency Moiré pattern found (Magnitude: {visual_metrics['moire_magnitude']:.1f}).")
+        
+        if visual_metrics.get("is_blurry"):
+            score += 15.0
+            details.append(f"Low-Quality Scan or Print: Image is significantly blurred or out of focus (Variance: {visual_metrics['blur_variance']:.1f}).")
 
     # Bound the score
     score = max(5.0, min(99.0, score))
