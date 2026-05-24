@@ -231,9 +231,16 @@ export default function Dashboard() {
           </div>
         </motion.div        {/* Loading / Error States */}
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-4">
-            <div className="h-10 w-10 border-4 border-teal-500 border-t-transparent rounded-full animate-spin" />
-            <p className="text-slate-400 text-sm font-medium">Securing connection to the TrustLens ledger...</p>
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="rounded-2xl border border-white/5 bg-slate-900/40 p-6 backdrop-blur-xl animate-pulse h-32" />
+              ))}
+            </div>
+            <div className="rounded-2xl border border-white/5 bg-slate-900/40 p-8 backdrop-blur-xl animate-pulse h-96 flex flex-col items-center justify-center">
+              <div className="h-10 w-10 border-4 border-teal-500/50 border-t-teal-400 rounded-full animate-spin mb-4" />
+              <p className="text-slate-400 text-sm font-medium">Securing connection to the TrustLens ledger...</p>
+            </div>
           </div>
         ) : error ? (
           <div className="glass-panel p-8 rounded-2xl border-red-500/20 text-center max-w-xl mx-auto space-y-4">

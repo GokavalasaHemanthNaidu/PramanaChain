@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Shield, LayoutDashboard, Upload, Search, LogOut, User } from "lucide-react";
+import { Shield, LayoutDashboard, Upload, Search, LogOut, User, Brain, Menu, X } from "lucide-react";
 
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const [email, setEmail] = useState<string | null>(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     const userJson = localStorage.getItem("trustlens_user");
@@ -31,13 +32,14 @@ export default function Navbar() {
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/upload", label: "Anchor Vault", icon: Upload },
     { href: "/verify", label: "Forensic Scan", icon: Search },
+    { href: "/training", label: "AI Training", icon: Brain },
   ];
 
   return (
-    <header className="sticky top-0 z-50 w-full px-6 py-4">
-      <nav className="mx-auto max-w-7xl glass-panel rounded-2xl px-6 py-3 flex items-center justify-between shadow-2xl">
+    <header className="sticky top-0 z-50 w-full px-4 md:px-6 py-4">
+      <nav className="mx-auto max-w-7xl glass-panel rounded-2xl px-5 py-3 flex items-center justify-between shadow-2xl">
         {/* Logo */}
-        <Link href="/dashboard" className="flex items-center gap-2.5 group">
+        <Link href="/dashboard" className="flex items-center gap-2.5 group shrink-0">
           <div className="bg-gradient-to-tr from-blue-600 to-teal-400 p-2 rounded-xl shadow-lg shadow-blue-500/10 group-hover:scale-105 transition-transform duration-200">
             <Shield className="h-5 w-5 text-white" />
           </div>
@@ -51,8 +53,8 @@ export default function Navbar() {
           </div>
         </Link>
 
-        {/* Links */}
-        <div className="hidden md:flex items-center gap-1.5">
+        {/* Desktop Links */}
+        <div className="hidden md:flex items-center gap-1">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;
@@ -60,7 +62,7 @@ export default function Navbar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
                   isActive
                     ? "bg-blue-500/10 text-blue-400 border border-blue-500/20 shadow-md shadow-blue-500/5"
                     : "text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent"
@@ -73,8 +75,8 @@ export default function Navbar() {
           })}
         </div>
 
-        {/* Auth details & Logout */}
-        <div className="flex items-center gap-4">
+        {/* Right side */}
+        <div className="flex items-center gap-3">
           {email && (
             <div className="hidden lg:flex items-center gap-2 bg-white/5 border border-white/5 rounded-xl px-3 py-1.5 text-xs text-slate-300">
               <User className="h-3.5 w-3.5 text-teal-400" />
@@ -83,13 +85,63 @@ export default function Navbar() {
           )}
           <button
             onClick={handleLogout}
-            className="flex items-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 hover:border-red-500/30 transition-all duration-200 px-4 py-2 rounded-xl text-sm font-medium cursor-pointer shadow-lg shadow-red-500/5"
+            className="hidden sm:flex items-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 hover:border-red-500/30 transition-all duration-200 px-4 py-2 rounded-xl text-sm font-medium cursor-pointer shadow-lg shadow-red-500/5"
           >
             <LogOut className="h-4 w-4" />
-            <span className="hidden sm:inline">Logout</span>
+            <span className="hidden md:inline">Logout</span>
+          </button>
+
+          {/* Mobile hamburger */}
+          <button
+            onClick={() => setMobileOpen((o) => !o)}
+            className="md:hidden p-2 bg-white/5 border border-white/10 text-slate-400 hover:text-white rounded-xl transition-all cursor-pointer"
+          >
+            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </div>
       </nav>
+
+      {/* Mobile Menu */}
+      {mobileOpen && (
+        <div className="md:hidden mx-4 mt-2 glass-panel rounded-2xl border border-white/10 shadow-2xl overflow-hidden">
+          <div className="p-3 space-y-1">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                    isActive
+                      ? "bg-blue-500/10 text-blue-400 border border-blue-500/20"
+                      : "text-slate-400 hover:text-white hover:bg-white/5"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {item.label}
+                </Link>
+              );
+            })}
+            <div className="pt-2 border-t border-white/5">
+              {email && (
+                <div className="flex items-center gap-2 px-4 py-2 text-xs text-slate-400">
+                  <User className="h-3.5 w-3.5 text-teal-400" />
+                  <span className="truncate">{email}</span>
+                </div>
+              )}
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-400 hover:bg-red-500/10 transition-all cursor-pointer"
+              >
+                <LogOut className="h-4 w-4" />
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

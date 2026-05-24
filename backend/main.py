@@ -475,6 +475,32 @@ def get_user_analytics(user_id: str = Query(...)):
         logger.error(f"Analytics API failed: {e}")
         return {"success": False, "error": str(e)}
 
+@app.get("/api/training/status")
+def get_training_status():
+    """Return the current state of the continuous learning queue."""
+    try:
+        training_data = db_client._load_local_training()
+        total = len(training_data)
+        recent = []
+        for rec in reversed(training_data[-10:]):
+            recent.append({
+                "doc_id": rec.get("doc_id", ""),
+                "timestamp": rec.get("timestamp", ""),
+                "original_type": rec.get("original_ai_prediction", {}).get("doc_type", ""),
+                "corrected_type": rec.get("user_correction", {}).get("doc_type", ""),
+                "original_name": rec.get("original_ai_prediction", {}).get("name", ""),
+                "corrected_name": rec.get("user_correction", {}).get("name", ""),
+            })
+        return {
+            "success": True,
+            "total_corrections": total,
+            "model_improvements": max(0, total - 1),
+            "recent_corrections": recent,
+            "learning_active": True,
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

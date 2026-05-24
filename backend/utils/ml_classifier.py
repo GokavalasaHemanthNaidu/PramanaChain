@@ -399,6 +399,32 @@ def analyze_document(image: Image.Image, filename: str = "") -> Dict[str, Any]:
         "amount":        {"value": amt_val,   "confidence": amt_conf},
         "address":       {"value": addr_val,  "confidence": addr_conf},
     }
+    result["raw_text"] = raw_text
+
+    # ── Continuous Learning Override ─────────────────────────────────────────
+    try:
+        from . import db_client
+        training_data = db_client._load_local_training()
+        if training_data:
+            import difflib
+            for record in reversed(training_data):
+                old_raw = record.get("original_ai_prediction", {}).get("raw_text", "")
+                if old_raw and len(raw_text) > 20 and len(old_raw) > 20:
+                    sim = difflib.SequenceMatcher(None, raw_text, old_raw).ratio()
+                    if sim > 0.85:
+                        logger.info(f"Continuous Learning Triggered! Matched historical correction with {sim*100:.1f}% similarity.")
+                        corr = record.get("user_correction", {})
+                        if "doc_type" in corr: result["document_type"] = corr["doc_type"]
+                        for field in ["name", "document_id", "language"]:
+                            if field in corr and corr[field]:
+                                if field == "language":
+                                    result["language"] = corr[field]
+                                else:
+                                    result["entities"][field]["value"] = corr[field]
+                                    result["entities"][field]["confidence"] = 100.0
+                        break
+    except Exception as e:
+        logger.warning(f"Continuous learning step failed: {e}")
 
     return result
 
@@ -421,4 +447,5 @@ def flatten_for_db(result: Dict[str, Any], manual_override: str = "") -> Dict[st
         "ml_confidence": result.get("confidence", 0.0),
         "ml_used":       result.get("ml_used", False),
         "language":      result.get("language", "english"),   # ← NEW: detected script
+        "raw_text":      result.get("raw_text", ""),
     }
