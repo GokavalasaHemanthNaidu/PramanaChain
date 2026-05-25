@@ -19,7 +19,7 @@ export default function AuthPage() {
 
   // Redirect if already logged in
   useEffect(() => {
-    const user = localStorage.getItem("trustlens_user");
+    const user = localStorage.getItem("Veralyt_user");
     if (user) {
       router.push("/dashboard");
     }
@@ -79,7 +79,7 @@ export default function AuthPage() {
         });
         
         if (isLogin) {
-          localStorage.setItem("trustlens_user", JSON.stringify({ email, id: data.user.id }));
+          localStorage.setItem("Veralyt_user", JSON.stringify({ email, id: data.user.id }));
           setTimeout(() => {
             router.push("/dashboard");
           }, 1500);
@@ -124,7 +124,7 @@ export default function AuthPage() {
           </div>
           <div>
             <h1 className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-blue-400 to-teal-300 bg-clip-text text-transparent">
-              TrustLens
+              Veralyt
             </h1>
             <span className="block text-[10px] uppercase tracking-wider text-teal-400 font-semibold leading-none">
               Forensic Chain
@@ -158,7 +158,7 @@ export default function AuthPage() {
 
         {/* Footer */}
         <p className="text-xs text-slate-500 relative z-10">
-          &copy; {new Date().getFullYear()} TrustLens. Securely built for lifetime usage.
+          &copy; {new Date().getFullYear()} Veralyt. Securely built for lifetime usage.
         </p>
       </div>
 
@@ -176,7 +176,7 @@ export default function AuthPage() {
                 <Shield className="h-5 w-5 text-white" />
               </div>
               <span className="font-extrabold text-lg bg-gradient-to-r from-blue-400 to-teal-300 bg-clip-text text-transparent">
-                TrustLens
+                Veralyt
               </span>
             </div>
             

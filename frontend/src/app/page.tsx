@@ -16,7 +16,7 @@ export default function LandingPage() {
               <Shield className="h-6 w-6 text-white" />
             </div>
             <span className="font-extrabold text-2xl tracking-tight bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent group-hover:to-white transition-all">
-              TrustLens
+              Veralyt
             </span>
           </div>
           <div className="flex items-center gap-6">
@@ -54,7 +54,7 @@ export default function LandingPage() {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
               </span>
-              TrustLens API v2 is now live
+              Veralyt API v2 is now live
             </motion.div>
 
             <motion.h1 
@@ -235,9 +235,9 @@ export default function LandingPage() {
       <footer className="border-t border-white/10 bg-slate-950 py-12 text-center text-slate-500 text-sm font-medium">
         <div className="flex items-center justify-center gap-2 mb-4">
           <Shield className="h-5 w-5 text-teal-500/50" />
-          <span className="text-slate-400 font-bold">TrustLens Forensic Chain</span>
+          <span className="text-slate-400 font-bold">Veralyt Forensic Chain</span>
         </div>
-        <p>© {new Date().getFullYear()} TrustLens Technologies. All rights reserved.</p>
+        <p>© {new Date().getFullYear()} Veralyt Technologies. All rights reserved.</p>
       </footer>
     </div>
   );

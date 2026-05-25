@@ -53,7 +53,7 @@ def _db():
     client = _get_mongo()
     if client is None:
         return None
-    db_name = _secret("MONGO_DB", "trustlens")
+    db_name = _secret("MONGO_DB", "Veralyt")
     return client[db_name]
 
 def _docs() -> Optional[Collection]:
@@ -144,7 +144,7 @@ def upload_image_to_storage(user_id: str, file_bytes: bytes, file_name: str) -> 
         cloud_name = _secret("CLOUDINARY_CLOUD_NAME", "")
         if cloud_name:
             _init_cloudinary()
-            public_id = f"trustlens/{user_id}/{uuid.uuid4().hex}"
+            public_id = f"Veralyt/{user_id}/{uuid.uuid4().hex}"
             result = cloudinary.uploader.upload(
                 file_bytes,
                 public_id   = public_id,
@@ -254,7 +254,7 @@ def delete_document_record(doc_id: str, image_url: Optional[str] = None) -> bool
     if image_url and "cloudinary" in image_url:
         try:
             _init_cloudinary()
-            match = re.search(r"/upload/(?:v\d+/)?(trustlens/.+?)(?:\.\w+)?$", image_url)
+            match = re.search(r"/upload/(?:v\d+/)?(Veralyt/.+?)(?:\.\w+)?$", image_url)
             if match:
                 cloudinary.uploader.destroy(match.group(1))
         except Exception:

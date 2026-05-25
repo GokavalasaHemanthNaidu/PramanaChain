@@ -12,7 +12,7 @@ export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
-    const userJson = localStorage.getItem("trustlens_user");
+    const userJson = localStorage.getItem("Veralyt_user");
     if (userJson) {
       try {
         const user = JSON.parse(userJson);
@@ -24,7 +24,7 @@ export default function Navbar() {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem("trustlens_user");
+    localStorage.removeItem("Veralyt_user");
     router.push("/");
   };
 
@@ -47,7 +47,7 @@ export default function Navbar() {
           </div>
           <div>
             <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-blue-400 to-teal-300 bg-clip-text text-transparent">
-              TrustLens
+              Veralyt
             </span>
             <span className="block text-[9px] uppercase tracking-wider text-teal-400 font-semibold leading-none">
               Forensic Chain

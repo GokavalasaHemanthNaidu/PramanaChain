@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-test_integration.py — Integration test suite for TrustLens FastAPI backend.
+test_integration.py — Integration test suite for Veralyt FastAPI backend.
 ASCII version for Windows CP1252 console safety.
 """
 import requests
@@ -25,7 +25,7 @@ def test_root():
 def test_auth():
     print("\n[...] Testing AUTH (Signup & Login) endpoints...")
     test_user = {
-        "email": "test_audit@trustlens.org",
+        "email": "test_audit@Veralyt.org",
         "password": "SecurePassword123!"
     }
     try:
@@ -55,7 +55,7 @@ def test_upload(user_id):
         from PIL import Image, ImageDraw
         img = Image.new("RGB", (300, 100), color=(12, 20, 38))
         d = ImageDraw.Draw(img)
-        d.text((10, 10), "TRUSTLENS TEST INVOICE #12345", fill=(255, 255, 255))
+        d.text((10, 10), "Veralyt TEST INVOICE #12345", fill=(255, 255, 255))
         d.text((10, 40), "Total Amount: $500.00", fill=(255, 255, 255))
         d.text((10, 70), "Date: 2026-05-21", fill=(255, 255, 255))
         img.save(test_img_path)
@@ -142,7 +142,7 @@ def test_analytics(user_id):
 
 if __name__ == "__main__":
     print("====================================================")
-    print("    TRUSTLENS FASTAPI INTEGRATION TEST SUITE        ")
+    print("    Veralyt FASTAPI INTEGRATION TEST SUITE        ")
     print("====================================================")
     
     success = True

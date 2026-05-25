@@ -47,7 +47,7 @@ export default function UploadPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const userJson = localStorage.getItem("trustlens_user");
+    const userJson = localStorage.getItem("Veralyt_user");
     if (!userJson) {
       router.push("/");
       return;
@@ -370,7 +370,7 @@ export default function UploadPage() {
                       <option value="Other">Custom Document</option>
                     </select>
                     <p className="text-[10px] text-slate-500 leading-relaxed">
-                      By default, TrustLens uses OCR lexical analysis to class types. Override if detection is uncertain.
+                      By default, Veralyt uses OCR lexical analysis to class types. Override if detection is uncertain.
                     </p>
                   </div>
 

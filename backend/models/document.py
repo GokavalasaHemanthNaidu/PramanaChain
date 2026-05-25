@@ -5,7 +5,7 @@ from datetime import datetime
 @dataclass
 class DocumentModel:
     """
-    Represents a verified document inside the TrustLens system.
+    Represents a verified document inside the Veralyt system.
     Provides strict type hinting for the entire cryptographic pipeline.
     """
     user_id: str

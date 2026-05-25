@@ -14,7 +14,7 @@ class TrustCertificate(FPDF):
         self.cell(0, 15, "Visual Document Trust Certificate", align="C", new_x="LMARGIN", new_y="NEXT")
         self.set_font("helvetica", "I", 11)
         self.set_text_color(100, 100, 100)
-        self.cell(0, 10, "Cryptographically Secured Provenance | TrustLens v1.5.0", align="C", new_x="LMARGIN", new_y="NEXT")
+        self.cell(0, 10, "Cryptographically Secured Provenance | Veralyt v1.5.0", align="C", new_x="LMARGIN", new_y="NEXT")
         self.line(10, self.get_y(), 200, self.get_y())
         self.ln(5)
 
@@ -22,7 +22,7 @@ class TrustCertificate(FPDF):
         self.set_y(-15)
         self.set_font("helvetica", "I", 8)
         self.set_text_color(150, 150, 150)
-        self.cell(0, 10, f"Verified by TrustLens Immutable Ledger | Page {self.page_no()}", align="C")
+        self.cell(0, 10, f"Verified by Veralyt Immutable Ledger | Page {self.page_no()}", align="C")
 
 def generate_pdf_certificate(doc_model, verification_url: str) -> bytes:
     """Generates a rich PDF certificate with QR code and original document image."""

@@ -78,7 +78,7 @@ export default function TrainingPage() {
   const [activeStage, setActiveStage] = useState(0);
 
   useEffect(() => {
-    const userJson = localStorage.getItem("trustlens_user");
+    const userJson = localStorage.getItem("Veralyt_user");
     if (!userJson) { router.push("/"); return; }
     fetchStatus();
     // Cycle through pipeline stages for visual effect
@@ -384,7 +384,7 @@ export default function TrainingPage() {
           <div className="space-y-1">
             <h4 className="text-sm font-bold text-white">How Automated Training Works</h4>
             <p className="text-xs text-slate-400 leading-relaxed max-w-3xl">
-              TrustLens uses a zero-shot approach: no retraining of neural network weights is needed. Instead, each correction is stored as a labelled example. During the next document analysis, the pipeline computes OCR text similarity using <strong className="text-white">Python difflib</strong>. If the new document's raw text matches a past correction at ≥85%, the human-verified label is applied directly — making every upload smarter in real-time.
+              Veralyt uses a zero-shot approach: no retraining of neural network weights is needed. Instead, each correction is stored as a labelled example. During the next document analysis, the pipeline computes OCR text similarity using <strong className="text-white">Python difflib</strong>. If the new document's raw text matches a past correction at ≥85%, the human-verified label is applied directly — making every upload smarter in real-time.
             </p>
           </div>
         </motion.div>

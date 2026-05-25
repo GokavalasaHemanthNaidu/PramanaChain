@@ -17,7 +17,7 @@ All components of the advanced trust chain features have been successfully porte
 - Automatically renders styling, neon shadows, and badges depending on document authenticity:
   - **Authentic (Green Glow)**: Document verified against ledger anchors via cryptographic proof.
   - **Tampered (Amber Glow)**: Scan details deviate from the registered genesis anchor.
-  - **Fake / Unverified (Red Pulse)**: Document unregistered in the TrustLens ledger.
+  - **Fake / Unverified (Red Pulse)**: Document unregistered in the Veralyt ledger.
 
 ### 3. Radial Name Match Chance Gauge & Diff Comparison Table
 - Designed a premium custom SVG circular progress ring tracking the fuzzy name matching probability (`ledger_comparison.match_chance`).
@@ -42,7 +42,7 @@ The complete backend API integration test suite (`backend/test_integration.py`) 
 
 ```bash
 ====================================================
-    TRUSTLENS FASTAPI INTEGRATION TEST SUITE        
+    Veralyt FASTAPI INTEGRATION TEST SUITE        
 ====================================================
 [...] Testing ROOT endpoint...
 [PASS] ROOT endpoint passed!
@@ -79,5 +79,5 @@ The complete backend API integration test suite (`backend/test_integration.py`) 
 
 ## 📂 Code Modifications Reference
 
-- **[verify/page.tsx](file:///C:/Users/Hemanth/.gemini/antigravity/scratch/trustlens_fullstack/frontend/src/app/verify/page.tsx)**: Fully integrated Ledger sync active tab, Verdict Banner, SVG radial gauge, interactive Framer Motion HUD reels, and side-by-side diff matrix.
-- **[test_integration.py](file:///C:/Users/Hemanth/.gemini/antigravity/scratch/trustlens_fullstack/backend/test_integration.py)**: Fixed CP1252 emoji encoding discrepancies for safe Windows execution.
+- **[verify/page.tsx](file:///C:/Users/Hemanth/.gemini/antigravity/scratch/Veralyt_fullstack/frontend/src/app/verify/page.tsx)**: Fully integrated Ledger sync active tab, Verdict Banner, SVG radial gauge, interactive Framer Motion HUD reels, and side-by-side diff matrix.
+- **[test_integration.py](file:///C:/Users/Hemanth/.gemini/antigravity/scratch/Veralyt_fullstack/backend/test_integration.py)**: Fixed CP1252 emoji encoding discrepancies for safe Windows execution.

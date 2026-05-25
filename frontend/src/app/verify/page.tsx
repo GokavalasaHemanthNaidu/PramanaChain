@@ -83,7 +83,7 @@ export default function VerifyForensicPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const user = localStorage.getItem("trustlens_user");
+    const user = localStorage.getItem("Veralyt_user");
     if (!user) {
       router.push("/");
     }
@@ -323,7 +323,7 @@ export default function VerifyForensicPage() {
             shadowColor: "shadow-slate-500/10",
             badge: "Not Found",
             points: [
-              "Warning: No matching record anchor found in the immutable TrustLens ledger.",
+              "Warning: No matching record anchor found in the immutable Veralyt ledger.",
               "This scan does not have an active ECDSA signature registered.",
               "Genesis fingerprint is unregistered, document is unverified."
             ]
@@ -547,7 +547,7 @@ export default function VerifyForensicPage() {
                             ? "This document exactly matches a registered immutable anchor. The digital signature checks out with the stored public key DID signature proof, and all OCR field layouts match perfectly."
                             : forensicData.ledger_comparison.status === "tampered"
                               ? "Alert: Uploaded scan details deviate from the registered ledger anchor! Field comparison shows spatial or text mismatch, representing local image tampering or forgery."
-                              : "Danger: This document was never registered in the TrustLens immutable ledger! The genesis fingerprint is unrecognized. This scan is likely a complete fabrication."}
+                              : "Danger: This document was never registered in the Veralyt immutable ledger! The genesis fingerprint is unrecognized. This scan is likely a complete fabrication."}
                         </p>
                       </div>
                     </div>

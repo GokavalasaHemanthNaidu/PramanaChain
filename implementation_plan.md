@@ -15,7 +15,7 @@ The goal of this plan is to integrate the missing trust features from the Stream
 
 ### Backend (`/backend`)
 
-#### [MODIFY] [main.py](file:///C:/Users/Hemanth/antigravity/scratch/trustlens_fullstack/backend/main.py)
+#### [MODIFY] [main.py](file:///C:/Users/Hemanth/antigravity/scratch/Veralyt_fullstack/backend/main.py)
 - Modify `/api/verify/image` to:
   1. Extract fields from the uploaded document image using the AI processor.
   2. Parse the name (`name_up`) and document ID (`id_up`) from the extraction result.
@@ -40,7 +40,7 @@ The goal of this plan is to integrate the missing trust features from the Stream
 
 ### Frontend (`/frontend`)
 
-#### [MODIFY] [page.tsx](file:///C:/Users/Hemanth/antigravity/scratch/trustlens_fullstack/frontend/src/app/verify/page.tsx)
+#### [MODIFY] [page.tsx](file:///C:/Users/Hemanth/antigravity/scratch/Veralyt_fullstack/frontend/src/app/verify/page.tsx)
 - Re-architect the Forensic Forgery Auditor results dashboard:
   1. **Ledger Verdict Banner**: Add a glowing, premium alert showing a clear security status verdict based on the returned `ledger_comparison`:
      - **Authentic (Green Glow)**: Tells the user the document matches a registered anchor exactly.

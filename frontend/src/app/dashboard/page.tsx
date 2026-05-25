@@ -114,7 +114,7 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    const userJson = localStorage.getItem("trustlens_user");
+    const userJson = localStorage.getItem("Veralyt_user");
     if (!userJson) {
       router.push("/");
       return;
@@ -241,7 +241,7 @@ export default function Dashboard() {
             </div>
             <div className="rounded-2xl border border-white/5 bg-slate-900/40 p-8 backdrop-blur-xl animate-pulse h-96 flex flex-col items-center justify-center">
               <div className="h-10 w-10 border-4 border-teal-500/50 border-t-teal-400 rounded-full animate-spin mb-4" />
-              <p className="text-slate-400 text-sm font-medium">Securing connection to the TrustLens ledger...</p>
+              <p className="text-slate-400 text-sm font-medium">Securing connection to the Veralyt ledger...</p>
             </div>
           </div>
         ) : error ? (
@@ -638,7 +638,7 @@ export default function Dashboard() {
                     <Search className="h-6 w-6 text-slate-400" />
                   </div>
                   <h3 className="text-2xl font-bold text-white tracking-tight">Manual Ledger Audit</h3>
-                  <p className="text-slate-400">Verify the authenticity of any document across the entire TrustLens network by entering its cryptographic hash or Document ID.</p>
+                  <p className="text-slate-400">Verify the authenticity of any document across the entire Veralyt network by entering its cryptographic hash or Document ID.</p>
                 </div>
                 
                 <form onSubmit={(e) => { window.scrollTo({top: 0, behavior: 'smooth'}); handleVerifySearch(e); }} className="flex flex-col sm:flex-row gap-3">

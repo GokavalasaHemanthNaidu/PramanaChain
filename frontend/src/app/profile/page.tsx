@@ -17,7 +17,7 @@ export default function ProfilePage() {
   const [emailAlerts, setEmailAlerts] = useState(true);
 
   useEffect(() => {
-    const userJson = localStorage.getItem("trustlens_user");
+    const userJson = localStorage.getItem("Veralyt_user");
     if (!userJson) {
       router.push("/auth");
       return;
@@ -48,7 +48,7 @@ export default function ProfilePage() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("trustlens_user");
+    localStorage.removeItem("Veralyt_user");
     router.push("/");
   };
 
@@ -106,7 +106,7 @@ export default function ProfilePage() {
                 <h2 className="text-xl font-bold text-white truncate w-full px-2" title={user?.email}>
                   {user?.email}
                 </h2>
-                <p className="text-sm text-slate-400 mt-1">TrustLens Member</p>
+                <p className="text-sm text-slate-400 mt-1">Veralyt Member</p>
                 <div className="mt-4 inline-flex items-center gap-1.5 bg-emerald-500/10 text-emerald-400 px-3 py-1 rounded-full text-xs font-medium border border-emerald-500/20">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                   Account Active

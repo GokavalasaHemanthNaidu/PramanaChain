@@ -23,7 +23,7 @@ DONUT_API  = "https://api-inference.huggingface.co/models/naver-clova-ix/donut-b
 # CORD receipt model (good for invoices)
 CORD_API   = "https://api-inference.huggingface.co/models/naver-clova-ix/donut-base-finetuned-cord-v2"
 # Custom trained model (LayoutLMv3 fine-tuned)
-ID_API     = "https://api-inference.huggingface.co/models/hemanthnaidug/my-trustlens-model"
+ID_API     = "https://api-inference.huggingface.co/models/hemanthnaidug/my-Veralyt-model"
 
 def _get_hf_token() -> str:
     try:

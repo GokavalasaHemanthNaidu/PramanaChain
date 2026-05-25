@@ -13,7 +13,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TrustLens | Cryptographic Document Verification",
+  title: "Veralyt | Cryptographic Document Verification",
   description: "Secure your identity on the blockchain with zero-shot AI and deepfake detection.",
 };
 
