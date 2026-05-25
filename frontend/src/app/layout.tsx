@@ -13,8 +13,17 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PramanaChain | Cryptographic Document Verification",
-  description: "Secure your identity on the blockchain with zero-shot AI and deepfake detection.",
+  title: "PramanaChain | AI-Powered Cryptographic Verification Ledger",
+  description: "PramanaChain is the ultimate forensic document verification platform. Securely anchor documents to an immutable cryptographic ledger using zero-shot AI, ECDSA signatures, and deepfake detection.",
+  keywords: ["PramanaChain", "pramanachain", "cryptographic ledger", "AI verification", "deepfake detection", "document authentication", "ECDSA signatures"],
+  authors: [{ name: "Hemanth Naidu" }],
+  openGraph: {
+    title: "PramanaChain | Cryptographic Ledger",
+    description: "Verify and anchor documents using AI and cryptography.",
+    url: "https://pramanachain.vercel.app",
+    siteName: "PramanaChain",
+    type: "website",
+  },
 };
 
 export default function RootLayout({
