@@ -4,10 +4,13 @@ import Link from "next/link";
 import { Shield, Fingerprint, Cpu, ArrowRight, Activity, CheckCircle2, Search, Database } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function LandingPage() {
+  const router = useRouter();
   const [isScrolled, setIsScrolled] = useState(false);
   const [tickerText, setTickerText] = useState("[14:02:01] Block #49281 • Document Anchored • Hash: 0x8A9...F1");
+  const [searchHash, setSearchHash] = useState("");
 
   // Handle Navbar Scroll Blur
   useEffect(() => {
@@ -32,6 +35,12 @@ export default function LandingPage() {
 
   // Spotlight effect state
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+
+  const handleVerifyClick = () => {
+    if (searchHash.trim().length > 0) {
+      router.push(`/ledger?hash=${searchHash}`);
+    }
+  };
 
   return (
     <div 
@@ -128,16 +137,23 @@ export default function LandingPage() {
                 Anchor Your First Document <ArrowRight className="h-4 w-4" />
               </Link>
               
-              {/* Search Mockup */}
-              <div className="w-full sm:w-auto flex items-center bg-slate-900/50 backdrop-blur-md border border-white/10 rounded-full px-4 py-2 hover:border-white/20 transition-all">
+              {/* Functional Search */}
+              <div className="w-full sm:w-auto flex items-center bg-slate-900/50 backdrop-blur-md border border-white/10 rounded-full px-4 py-2 focus-within:border-teal-500/50 focus-within:shadow-[0_0_15px_rgba(20,184,166,0.15)] transition-all">
                 <Search className="h-4 w-4 text-slate-400 mr-2" />
                 <input 
                   type="text" 
                   placeholder="Paste Hash (0x8f...)" 
+                  value={searchHash}
+                  onChange={(e) => setSearchHash(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleVerifyClick()}
                   className="bg-transparent border-none text-sm text-white placeholder-slate-500 focus:outline-none w-32 md:w-48"
-                  disabled
                 />
-                <div className="px-3 py-1 bg-white/5 rounded-full text-xs font-semibold text-slate-400">Verify</div>
+                <button 
+                  onClick={handleVerifyClick}
+                  className="px-3 py-1 bg-white/5 hover:bg-white/10 rounded-full text-xs font-semibold text-slate-300 cursor-pointer transition-colors"
+                >
+                  Verify
+                </button>
               </div>
             </motion.div>
           </div>
@@ -250,24 +266,26 @@ export default function LandingPage() {
       {/* Trusted By Banner with Marquee */}
       <section className="py-12 border-b border-white/5 bg-slate-900/30 overflow-hidden">
         <div className="max-w-7xl mx-auto">
-          <p className="text-center text-xs font-bold text-slate-500 uppercase tracking-widest mb-8">Securing documents for innovative teams</p>
+          <p className="text-center text-xs font-bold text-slate-500 uppercase tracking-widest mb-8">CRYPTOGRAPHIC INFRASTRUCTURE POWERED BY</p>
           
           <div className="relative flex overflow-x-hidden group">
-            <div className="animate-marquee whitespace-nowrap flex items-center gap-16 md:gap-32 opacity-40 grayscale group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-500 min-w-full">
-              <h3 className="text-2xl font-black font-sans italic tracking-tighter mx-8">Global Bank</h3>
-              <h3 className="text-xl font-bold font-mono tracking-widest mx-8">QUANTUM</h3>
-              <h3 className="text-2xl font-extrabold tracking-tight mx-8">University of X</h3>
-              <h3 className="text-xl font-medium tracking-[0.2em] mx-8">NEXUS SECURE</h3>
-              <h3 className="text-2xl font-black font-sans italic tracking-tighter mx-8">Apex Financial</h3>
+            <div className="animate-marquee whitespace-nowrap flex items-center gap-16 md:gap-32 opacity-50 transition-all duration-500 min-w-full">
+              <h3 className="text-2xl font-black font-sans tracking-tighter mx-8 text-white">Next.js</h3>
+              <h3 className="text-2xl font-black font-sans tracking-tighter mx-8 text-white">Vercel</h3>
+              <h3 className="text-xl font-bold font-mono tracking-widest mx-8 text-white">React</h3>
+              <h3 className="text-2xl font-extrabold tracking-tight mx-8 text-white">Node.js</h3>
+              <h3 className="text-xl font-bold tracking-widest mx-8 text-white">Zero-Shot AI</h3>
+              <h3 className="text-2xl font-black font-sans tracking-tighter mx-8 text-white">ECDSA</h3>
             </div>
             
             {/* Duplicate for infinite loop illusion */}
-            <div className="animate-marquee whitespace-nowrap flex items-center gap-16 md:gap-32 opacity-40 grayscale group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-500 min-w-full absolute top-0 left-full">
-              <h3 className="text-2xl font-black font-sans italic tracking-tighter mx-8">Global Bank</h3>
-              <h3 className="text-xl font-bold font-mono tracking-widest mx-8">QUANTUM</h3>
-              <h3 className="text-2xl font-extrabold tracking-tight mx-8">University of X</h3>
-              <h3 className="text-xl font-medium tracking-[0.2em] mx-8">NEXUS SECURE</h3>
-              <h3 className="text-2xl font-black font-sans italic tracking-tighter mx-8">Apex Financial</h3>
+            <div className="animate-marquee whitespace-nowrap flex items-center gap-16 md:gap-32 opacity-50 transition-all duration-500 min-w-full absolute top-0 left-full">
+              <h3 className="text-2xl font-black font-sans tracking-tighter mx-8 text-white">Next.js</h3>
+              <h3 className="text-2xl font-black font-sans tracking-tighter mx-8 text-white">Vercel</h3>
+              <h3 className="text-xl font-bold font-mono tracking-widest mx-8 text-white">React</h3>
+              <h3 className="text-2xl font-extrabold tracking-tight mx-8 text-white">Node.js</h3>
+              <h3 className="text-xl font-bold tracking-widest mx-8 text-white">Zero-Shot AI</h3>
+              <h3 className="text-2xl font-black font-sans tracking-tighter mx-8 text-white">ECDSA</h3>
             </div>
           </div>
           
