@@ -48,7 +48,7 @@
 | Blob Storage | Cloudinary | `cloudinary` SDK | Managed CDN for optimized image delivery. |
 | Cryptography | Python `cryptography` | >=41.0.0 | ECDSA (SECP256R1) NIST P-256 signatures matching enterprise standards. |
 | ML Framework | OpenCV | >=4.8.0 | Industry standard for Vision Language Models and pixel matrices. |
-| Vision Models | Custom HF Model / Donut | latest | Custom model for classification; Donut for template-free VQA extraction. |
+| Vision Models | Microsoft DiT Pre-trained / Donut | latest | Custom model for classification; Donut for template-free VQA extraction. |
 | OCR Engine | OCR.space + PyTesseract | v2 | English, Hindi, Telugu, Tamil, Kannada fallback extraction. |
 | Frontend | Next.js (App Router) | 14.x | Server React Components, superior SEO, edge caching. |
 | Styling | Tailwind CSS / Framer | 3.4 / 11 | Rapid UI prototyping with complex forensic HUD animations. |
@@ -98,7 +98,7 @@
 - **Mathematical Formulation (ELA):** Detect local maxima in compression error matrices: $E(x,y) = |I_{orig}(x,y) - I_{recompressed}(x,y)|$. High variance in $\Delta E$ signifies tampering.
 
 **Model Architecture:**
-- **Model Name:** Donut (Document Understanding Transformer), Custom Classification Model (`hemanthnaidug/my-PramanaChain-model`).
+- **Model Name:** Donut (Document Understanding Transformer), Custom Classification Model (`microsoft/dit-base-finetuned-rvlcdip`).
 - **Why this architecture?** Donut requires *zero* OCR bounding boxes, mapping raw pixels directly to JSON. The custom model specifically targets Indian KYC documents. OpenCV provides deterministic heuristic checks (Laplacian variance for blur, FFT for Moiré).
 
 ### 8. BACKEND ENGINEERING & SDE IMPRESSIONS

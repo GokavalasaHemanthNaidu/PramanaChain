@@ -47,7 +47,7 @@ Instead of a slow, distributed blockchain, MongoDB provides the high-performance
 | **Backend** | FastAPI, Python, Uvicorn | >=0.110.0, 3.11.8| High-performance async API |
 | **Database/Ledger** | MongoDB Atlas (pymongo) | M0 Free Tier | Core Immutable Ledger for document metadata and cryptographic signatures |
 | **Storage** | Cloudinary | `cloudinary` SDK | CDN-backed secure image storage |
-| **AI/ML Classification** | Custom HF Model | `hemanthnaidug/my-PramanaChain-model` | Classifies Indian IDs (Aadhaar, PAN, Voter ID) |
+| **AI/ML Classification** | Microsoft DiT Pre-trained | `microsoft/dit-base-finetuned-rvlcdip` | Classifies Indian IDs (Aadhaar, PAN, Voter ID) |
 | **AI/ML Extraction** | HuggingFace Inference API | `donut-base-finetuned-docvqa` | Zero-shot data extraction (No templates needed) |
 | **OCR Engine** | OCR.space API + PyTesseract | Multi-language (En/Hi/Te/Ta/Kn) | Text fallback extraction for classification |
 | **Crypto** | Python `cryptography` | ECDSA (SECP256R1) | NIST P-256 key generation & document signing |
