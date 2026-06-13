@@ -293,7 +293,7 @@ export default function LandingPage() {
           <div className="flex justify-center items-center gap-6 mt-10">
             <span className="text-[10px] text-slate-500 border border-slate-800 rounded-sm px-2 py-1 bg-slate-900">AES-256 ENCRYPTED</span>
             <span className="text-[10px] text-slate-500 border border-slate-800 rounded-sm px-2 py-1 bg-slate-900">ECDSA SECURED</span>
-            <span className="text-[10px] text-slate-500 border border-slate-800 rounded-sm px-2 py-1 bg-slate-900">SOC 2 TYPE II COMPLIANT</span>
+            <span className="text-[10px] text-slate-500 border border-slate-800 rounded-sm px-2 py-1 bg-slate-900">CRYPTOGRAPHICALLY SECURED</span>
           </div>
         </div>
       </section>
