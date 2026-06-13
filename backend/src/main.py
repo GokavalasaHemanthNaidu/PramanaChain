@@ -19,8 +19,8 @@ from slowapi.errors import RateLimitExceeded
 import html
 
 # Import local utilities
-from utils import auth, crypto_signer, hashing, db_client, ml_classifier, ela_detector
-from models.document import DocumentModel
+from src.utils import auth, crypto_signer, hashing, db_client, ml_classifier, ela_detector
+from src.models.document import DocumentModel
 
 # Setup Logging
 logging.basicConfig(level=logging.INFO)
@@ -126,7 +126,7 @@ def login(request: Request, payload: AuthRequest):
     }
 
 from fastapi import Depends
-from security import verify_api_key
+from src.core.security import verify_api_key
 
 # ── Secure Upload & Anchoring ──
 

@@ -1,45 +1,37 @@
-# Dependency directories
-node_modules/
-frontend/node_modules/
-frontend/.next/
-frontend/out/
-
-# Environments & Variables
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
 .env
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
-frontend/.env
-frontend/.env.local
-frontend/.env.development.local
-frontend/.env.production.local
-backend/.env
+.env.production
 
-# Python / FastAPI
-backend/__pycache__/
-backend/*.pyc
-backend/*.pyo
-backend/*.pyd
-backend/.pytest_cache/
-backend/venv/
-backend/env/
-.venv/
-venv/
-env/
-
-# System / Cache / Logs
-.DS_Store
-*.log
-Thumbs.db
-.idea/
-.vscode/
-frontend/.eslintcache
-
-# Security / Crypto / ML Artifacts
+# Secrets
 *.pem
 *.key
-*.pkl
-*.onnx
-*.h5
-*.pt
+*.crt
+secrets/
+credentials/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+.next/
+dist/
+
+# Data
+*.csv
+*.db
+*.sqlite
