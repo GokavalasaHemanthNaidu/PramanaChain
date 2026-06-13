@@ -35,3 +35,11 @@ Thumbs.db
 .idea/
 .vscode/
 frontend/.eslintcache
+
+# Security / Crypto / ML Artifacts
+*.pem
+*.key
+*.pkl
+*.onnx
+*.h5
+*.pt

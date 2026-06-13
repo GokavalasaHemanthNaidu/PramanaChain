@@ -8,10 +8,15 @@ import io
 import os
 import logging
 from typing import Optional, Dict, Any, List
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator, Field
 from PIL import Image
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+import html
 
 # Import local utilities
 from utils import auth, crypto_signer, hashing, db_client, ml_classifier, ela_detector
@@ -27,19 +32,41 @@ app = FastAPI(
     version="1.5.0"
 )
 
-# CORS configurations — allows Next.js frontend on localhost:3000 to interact with it
+# Rate Limiter setup
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled server error: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"success": False, "error": "Internal Server Error"}
+    )
+
+# CORS configurations — Restricted for security
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # For dev simplicity; restrict to specific domains in production
+    allow_origins=[
+        "https://pramanachain.vercel.app",
+        "http://localhost:3000"
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
 # ── Pydantic Schemas ───────────────────────────────────────────────────────────
 class AuthRequest(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(..., min_length=8, max_length=128)
+
+    @field_validator("password")
+    def password_complexity(cls, v):
+        if not any(char.isdigit() for char in v):
+            raise ValueError("Password must contain at least one digit")
+        return html.escape(v)
 
 class VerifyResponse(BaseModel):
     success: bool
@@ -49,18 +76,30 @@ class VerifyResponse(BaseModel):
 # ── API Endpoints ──────────────────────────────────────────────────────────────
 
 @app.get("/")
-def home():
+@limiter.limit("60/minute")
+def home(request: Request):
+    # Perform a fast health check on essential external services
+    try:
+        db_ping = db_client.ping()
+    except Exception:
+        db_ping = False
+        
+    if not db_ping:
+        raise HTTPException(status_code=503, detail="Database connection failed")
+        
     return {
         "status": "online",
         "app": "PramanaChain Backend",
         "version": "1.5.0",
+        "health": "OK",
         "endpoints": ["/api/auth/signup", "/api/auth/login", "/api/upload", "/api/verify", "/api/verify/image", "/api/analytics"]
     }
 
 # ── Authentication ──
 
 @app.post("/api/auth/signup")
-def signup(payload: AuthRequest):
+@limiter.limit("10/minute")
+def signup(request: Request, payload: AuthRequest):
     result, err = auth.sign_up(payload.email, payload.password)
     if err:
         return {"success": False, "error": err}
@@ -73,7 +112,8 @@ def signup(payload: AuthRequest):
     }
 
 @app.post("/api/auth/login")
-def login(payload: AuthRequest):
+@limiter.limit("20/minute")
+def login(request: Request, payload: AuthRequest):
     result, err = auth.sign_in(payload.email, payload.password)
     if err:
         return {"success": False, "error": err}
@@ -85,10 +125,16 @@ def login(payload: AuthRequest):
         }
     }
 
+from fastapi import Depends
+from security import verify_api_key
+
 # ── Secure Upload & Anchoring ──
 
 @app.post("/api/upload")
+@limiter.limit("10/minute")
 async def upload_document(
+    request: Request,
+    api_key: str = Depends(verify_api_key),
     user_id: str = Form(...),
     override_type: Optional[str] = Form(""),
     force_anchor: Optional[bool] = Form(False),
@@ -183,7 +229,8 @@ class TrainingCorrectionRequest(BaseModel):
     corrected_fields: dict
 
 @app.post("/api/training/correction")
-async def flag_ai_error(req: TrainingCorrectionRequest):
+@limiter.limit("10/minute")
+async def flag_ai_error(request: Request, req: TrainingCorrectionRequest):
     """Log an AI mistake and user correction for continuous learning."""
     try:
         # Retrieve the document from db
@@ -203,7 +250,8 @@ async def flag_ai_error(req: TrainingCorrectionRequest):
         return {"success": False, "error": str(e)}
 
 @app.post("/api/documents/delete")
-def delete_documents(req: DeleteRequest):
+@limiter.limit("20/minute")
+def delete_documents(request: Request, req: DeleteRequest):
     try:
         deleted_count = 0
         for doc_id in req.doc_ids:
@@ -220,7 +268,9 @@ def delete_documents(req: DeleteRequest):
 # ── Public Verification ──
 
 @app.get("/api/verify")
+@limiter.limit("60/minute")
 def verify_document(
+    request: Request,
     query: str = Query(...),
     doc_type: Optional[str] = Query("all")
 ):
@@ -283,7 +333,9 @@ def verify_document(
 # ── Forgery & Image ELA Scan ──
 
 @app.post("/api/verify/image")
+@limiter.limit("10/minute")
 async def verify_image_forgery(
+    request: Request,
     file: UploadFile = File(...)
 ):
     try:
@@ -438,7 +490,8 @@ async def verify_image_forgery(
 # ── User Dashboard Analytics ──
 
 @app.get("/api/analytics")
-def get_user_analytics(user_id: str = Query(...)):
+@limiter.limit("60/minute")
+def get_user_analytics(request: Request, user_id: str = Query(...)):
     try:
         docs = db_client.get_user_documents(user_id)
         total = len(docs)
