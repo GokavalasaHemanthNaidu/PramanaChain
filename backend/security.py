@@ -20,10 +20,10 @@ def verify_api_key(api_key_header: str = Security(API_KEY_HEADER)):
             detail="Invalid API Key provided."
         )
     
-    # If not provided, log a warning (for now) but allow pass-through.
-    # TODO: Enforce this strictly once frontend is updated.
     if not api_key_header:
-        # Strict mode would raise 403 here.
-        pass
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="API Key required. Pass X-API-Key header."
+        )
         
     return api_key_header

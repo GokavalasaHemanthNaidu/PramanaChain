@@ -16,7 +16,13 @@
 
 **PramanaChain** is a full-stack, blockchain-inspired cryptographic ledger designed to securely anchor documents, detect digital forgeries, and extract metadata using zero-shot AI. 
 
-By combining **Error Level Analysis (ELA)**, **YOLO11 Object Detection**, and **ECDSA Digital Signatures**, PramanaChain provides a robust forensic pipeline to guarantee document integrity.
+By combining **Error Level Analysis (ELA)**, **YOLO11** and **ECDSA Digital Signatures**, PramanaChain provides a robust forensic pipeline to guarantee document integrity.
+
+## 🌟 Core Differentiators
+- **Zero-Trust Anchor Architecture:** Uses ECDSA signatures bound to OCR content hashes.
+- **Multi-Modal AI Forensic Engine:** Checks for ELA (Error Level Analysis), copy-move forgery, and visual anomalies.
+- **Enterprise-Grade Security:** Hardened with strict IP-based rate limiting (DDoS protection), rigid CORS boundaries, and secure X-API-Key gates.
+- **Immutable Audit Trail:** MongoDB ledger ensures permanent tracking of all verifications.
 
 ## 🌟 Core Features
 

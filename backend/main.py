@@ -216,7 +216,7 @@ async def upload_document(
         }
     except Exception as e:
         logger.error(f"Upload API failed: {e}")
-        return {"success": False, "error": str(e)}
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 # ── Document Management ──
 
@@ -247,7 +247,7 @@ async def flag_ai_error(request: Request, req: TrainingCorrectionRequest):
         return {"success": success}
     except Exception as e:
         logger.error(f"Failed to log training correction: {e}")
-        return {"success": False, "error": str(e)}
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.post("/api/documents/delete")
 @limiter.limit("20/minute")
@@ -263,7 +263,7 @@ def delete_documents(request: Request, req: DeleteRequest):
         return {"success": True, "deleted_count": deleted_count}
     except Exception as e:
         logger.error(f"Error in delete documents API: {e}")
-        return {"success": False, "error": str(e)}
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 # ── Public Verification ──
 
@@ -274,7 +274,7 @@ def verify_document(
     query: str = Query(...),
     doc_type: Optional[str] = Query("all")
 ):
-    query = query.strip()
+    query = html.escape(query.strip())
     if not query:
         return {"success": False, "error": "Search query cannot be empty."}
         
@@ -476,8 +476,11 @@ async def verify_image_forgery(
 
         return {
             "success": True,
-            "filename": file.filename,
-            "ai_result": ai_result,
+            "filename": html.escape(file.filename),
+            "ai_result": {
+                **ai_result,
+                "document_type": html.escape(doc_type_up)
+            },
             "forgery_result": forgery,
             "metadata_audit": meta,
             "heatmap_image": f"data:image/jpeg;base64,{heatmap_base64}",
@@ -485,7 +488,7 @@ async def verify_image_forgery(
         }
     except Exception as e:
         logger.error(f"Image forensic scan failed: {e}")
-        return {"success": False, "error": str(e)}
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 # ── User Dashboard Analytics ──
 
@@ -525,8 +528,8 @@ def get_user_analytics(request: Request, user_id: str = Query(...)):
             ]
         }
     except Exception as e:
-        logger.error(f"Analytics API failed: {e}")
-        return {"success": False, "error": str(e)}
+        logger.error(f"Error in analytics: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.get("/api/training/status")
 def get_training_status():

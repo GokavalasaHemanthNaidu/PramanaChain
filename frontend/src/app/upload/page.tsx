@@ -120,6 +120,9 @@ export default function UploadPage() {
     try {
       const response = await fetch(`${API_BASE_URL}/api/upload`, {
         method: "POST",
+        headers: {
+          "X-API-Key": "dev-secret-key-123"
+        },
         body: formData,
       });
 
