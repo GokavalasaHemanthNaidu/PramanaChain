@@ -2,14 +2,14 @@
 
 ### 1. EXECUTIVE SUMMARY
 - **One-Line Hook:** A cryptographically secured, zero-shot AI document ledger that instantly detects deepfakes, blocks forged IDs, and anchors digital truth immutably.
-- **Problem Domain:** FinTech / LegalTech / Identity Verification (KYC/AML).
+- **Problem Domain:** FinTech / LegalTech / Identity Verification (KYC/AML) in India.
 - **Business Value Proposition:** Protects institutions from millions in fraud losses by algorithmically rejecting deepfakes and synthetically tampered documents at the point of ingestion, before manual human review.
 - **Unique Differentiator:** Combines cryptographic anchoring (ECDSA + SHA-256) with computer vision forensics (Error Level Analysis) and zero-shot VQA (Donut), proving not just *what* a document says, but mathematically proving its *genesis and authenticity*.
 - **Status:** Cloud-deployed (Vercel frontend, Render backend) with strict security hardening (API keys, CORS, rate limits).
 
 ### 2. REAL-LIFE PROBLEM & MARKET CONTEXT
-- **Which real company has this exact problem?** Stripe (Identity API), Persona, Onfido, Chainalysis.
-- **Cost of the Problem:** Synthetic identity fraud costs US lenders over $6 Billion annually. Manual KYC review latency causes a 15-20% user drop-off during onboarding.
+- **Which real company has this exact problem?** Stripe (Identity API), Persona, Onfido, Chainalysis, Indian Banks.
+- **Cost of the Problem:** Synthetic identity fraud (Aadhaar, PAN) costs institutions massive sums annually. Manual KYC review latency causes a 15-20% user drop-off during onboarding.
 - **Current Industry Solutions:** Incumbents rely heavily on expensive manual human-in-the-loop verification or basic OCR templates that break when ID formats change. Most lack robust pixel-level deepfake detection (ELA).
 - **Why this solution wins:** Zero-shot AI means zero templates are needed (infinite scalability across global ID types). ELA detects tampering that human reviewers miss. ECDSA anchoring guarantees the document is never secretly altered post-upload.
 
@@ -22,7 +22,7 @@
                                                         ↓
 [Image Blob] → [Cloudinary CDN]             [Core Inference Engine]
                                             ↙           ↓           ↘
-                          [YOLO11: Bounds]  [OpenCV: ELA]  [Donut: Zero-Shot VQA]
+                          [OCR API Fallback]  [OpenCV: ELA]  [Donut: Zero-Shot VQA]
                                                         ↓
                                          [ECDSA Cryptographic Signer]
                                                         ↓
@@ -33,7 +33,7 @@
   1. User uploads document via Next.js frontend (with X-API-Key).
   2. Image is passed to FastAPI backend via multipart/form-data.
   3. Image is asynchronously uploaded to Cloudinary for blob storage.
-  4. Core Inference Engine runs YOLO11 (boundary check), OpenCV ELA (tamper check), and Donut (metadata extraction).
+  4. Core Inference Engine runs OpenCV ELA (tamper check) and HuggingFace APIs (classification & Donut metadata extraction).
   5. If valid, the image hash (SHA-256) and extracted metadata are signed via ECDSA.
   6. Ledger entry is anchored in MongoDB Atlas.
 - **Scaling Strategy:** Frontend is globally distributed via Vercel Edge. Backend scales horizontally via containerized Python 3.11 FastAPI instances on Render. MongoDB scales via replica sets.
@@ -43,12 +43,13 @@
 | Layer | Technology | Version | Justification |
 |-------|-----------|---------|---------------|
 | Language | TypeScript / Python | 5.0 / 3.11.8 | Type safety on client; ML ecosystem on backend. |
-| Backend Framework | FastAPI / Uvicorn | 0.110.0 / 0.28.0 | High performance ASGI, native Pydantic validation. |
-| Database (Primary) | MongoDB Atlas (M0) | 4.6.0 | Flexible JSON schema for diverse zero-shot document structures. |
-| Blob Storage | Cloudinary | 1.36.0 | Managed CDN for optimized image delivery. |
-| Cryptography | Python `cryptography` | >=41.0.0 | ECDSA (SECP256k1) signatures matching Bitcoin standards. |
-| ML Framework | OpenCV | 4.8.0 | Industry standard for Vision Language Models and pixel matrices. |
-| Vision Models | YOLO11 / Donut | latest | YOLO for edge detection; Donut for template-free VQA extraction. |
+| Backend Framework | FastAPI / Uvicorn | >=0.110.0 / >=0.28.0 | High performance ASGI, native Pydantic validation. |
+| Database (Primary) | MongoDB Atlas (M0) | pymongo | Flexible JSON schema for diverse zero-shot document structures. |
+| Blob Storage | Cloudinary | `cloudinary` SDK | Managed CDN for optimized image delivery. |
+| Cryptography | Python `cryptography` | >=41.0.0 | ECDSA (SECP256R1) NIST P-256 signatures matching enterprise standards. |
+| ML Framework | OpenCV | >=4.8.0 | Industry standard for Vision Language Models and pixel matrices. |
+| Vision Models | Custom HF Model / Donut | latest | Custom model for classification; Donut for template-free VQA extraction. |
+| OCR Engine | OCR.space + PyTesseract | v2 | English, Hindi, Telugu, Tamil, Kannada fallback extraction. |
 | Frontend | Next.js (App Router) | 14.x | Server React Components, superior SEO, edge caching. |
 | Styling | Tailwind CSS / Framer | 3.4 / 11 | Rapid UI prototyping with complex forensic HUD animations. |
 | Cloud Provider | Vercel (Front) / Render (Back) | - | Serverless execution optimized for Next.js and Python clouds. |
@@ -97,8 +98,8 @@
 - **Mathematical Formulation (ELA):** Detect local maxima in compression error matrices: $E(x,y) = |I_{orig}(x,y) - I_{recompressed}(x,y)|$. High variance in $\Delta E$ signifies tampering.
 
 **Model Architecture:**
-- **Model Name:** Donut (Document Understanding Transformer), YOLO11.
-- **Why this architecture?** Donut requires *zero* OCR bounding boxes, mapping raw pixels directly to JSON. YOLO11 is SOTA for fast, real-time bounding box edge detection.
+- **Model Name:** Donut (Document Understanding Transformer), Custom Classification Model (`hemanthnaidug/my-PramanaChain-model`).
+- **Why this architecture?** Donut requires *zero* OCR bounding boxes, mapping raw pixels directly to JSON. The custom model specifically targets Indian KYC documents. OpenCV provides deterministic heuristic checks (Laplacian variance for blur, FFT for Moiré).
 
 ### 8. BACKEND ENGINEERING & SDE IMPRESSIONS
 **Code Organization (FAANG Structure):**
@@ -110,7 +111,7 @@ backend/
 │   ├── api/          (Route handlers)
 │   ├── models/       (Pydantic DB schemas)
 │   ├── services/     (Business Logic)
-│   └── utils/        (Auth, Crypto Signers, Cloudinary Clients)
+│   └── utils/        (Auth, Crypto Signers, Cloudinary Clients, ML Pipeline)
 ├── tests/            (Pytest Security Suite)
 ├── requirements.txt  (Loosely Pinned for CI/CD)
 └── .python-version   (Forces 3.11.8 on Render)
@@ -132,9 +133,9 @@ backend/
 **SDE / Full-Stack Resume:**
 - Architected a secure, API-gated cryptographic document ledger using Next.js and FastAPI, successfully deploying to Vercel and Render while mitigating CORS, XSS, and DDoS vulnerabilities.
 - Structured a production-grade Python backend separating CPU-bound (ML) tasks from I/O-bound (MongoDB/Cloudinary) tasks, improving concurrency via threadpools.
-- Hardened server infrastructure by instituting in-memory rate limits (slowapi), ECDSA content anchoring, and strict Pydantic payload validation.
+- Hardened server infrastructure by instituting in-memory rate limits (slowapi), SECP256R1 ECDSA content anchoring, and strict Pydantic payload validation.
 
 **DS / MLE Resume:**
 - Deployed a zero-shot Vision-Language Model (Donut) pipeline to extract unstructured KYC data, eliminating the need for hardcoded OCR templates.
-- Engineered a computer vision deepfake detection module using Error Level Analysis (ELA), isolating pixel-compression anomalies to catch synthetic identity fraud.
+- Engineered a computer vision deepfake detection module using Error Level Analysis (ELA), Laplacian blur variance, and FFT Moiré pattern detection to isolate pixel-compression anomalies to catch synthetic identity fraud.
 - Integrated heavy PyTorch transformer inference within a low-latency FastAPI microservice environment on cloud platforms.

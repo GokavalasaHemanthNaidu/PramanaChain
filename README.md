@@ -27,10 +27,10 @@ Current automated solutions use rigid OCR templates that break when ID formats u
 ```ascii
 [Client: Next.js 14] ──(HTTPS)──> [FastAPI Backend]
                                       │
-                                      ├── 1. [OpenCV] ELA Forensics Check
-                                      ├── 2. [HuggingFace] AI Data Extraction (Aadhaar/PAN)
+                                      ├── 1. [OpenCV] ELA Forensics, Blur & Moiré Checks
+                                      ├── 2. [HuggingFace] AI Data Extraction & ID Classification
                                       ├── 3. [SHA-256] Document Hashing
-                                      ├── 4. [ECDSA] Cryptographic Signing
+                                      ├── 4. [ECDSA] Cryptographic Signing (SECP256R1)
                                       │
                                       ▼
                       [MongoDB Atlas] & [Cloudinary CDN]
@@ -41,17 +41,19 @@ PramanaChain uses **MongoDB Atlas** as the core cryptographic ledger.
 Instead of a slow, distributed blockchain, MongoDB provides the high-performance document store. When a document is processed, its digital signature (ECDSA), content hash (SHA-256), extracted fields, and fraud-risk score are permanently anchored into MongoDB. Any subsequent search for that document pulls from MongoDB and mathematically re-verifies the signature against the hash to prove it hasn't been tampered with since the second it was uploaded.
 
 ### Tech Stack
-| Layer | Technology | Exact Version | Purpose |
-|-------|------------|---------------|---------|
+| Layer | Technology | Exact Specifications | Purpose |
+|-------|------------|----------------------|---------|
 | **Frontend** | Next.js (App Router), TS, Tailwind | 14.x | Interactive UI, Framer Motion animations |
-| **Backend** | FastAPI, Python, Uvicorn | 0.110.0, 3.11.8| High-performance async API |
-| **Database/Ledger** | MongoDB Atlas (M0 Free Tier) | 4.6.0 | Core Immutable Ledger for document metadata and cryptographic signatures |
-| **Storage** | Cloudinary | 1.36.0 | CDN-backed secure image storage |
-| **AI/ML** | HuggingFace Inference API | N/A | Donut for VQA (Zero-shot data extraction), YOLO11 |
-| **Crypto** | Python `cryptography` | >=41.0.0 | ECDSA (secp256k1) key generation & signing |
-| **Forensics**| OpenCV (`opencv-python-headless`) | >=4.8.0 | Error Level Analysis (ELA) for tampering |
+| **Backend** | FastAPI, Python, Uvicorn | >=0.110.0, 3.11.8| High-performance async API |
+| **Database/Ledger** | MongoDB Atlas (pymongo) | M0 Free Tier | Core Immutable Ledger for document metadata and cryptographic signatures |
+| **Storage** | Cloudinary | `cloudinary` SDK | CDN-backed secure image storage |
+| **AI/ML Classification** | Custom HF Model | `hemanthnaidug/my-PramanaChain-model` | Classifies Indian IDs (Aadhaar, PAN, Voter ID) |
+| **AI/ML Extraction** | HuggingFace Inference API | `donut-base-finetuned-docvqa` | Zero-shot data extraction (No templates needed) |
+| **OCR Engine** | OCR.space API + PyTesseract | Multi-language (En/Hi/Te/Ta/Kn) | Text fallback extraction for classification |
+| **Crypto** | Python `cryptography` | ECDSA (SECP256R1) | NIST P-256 key generation & document signing |
+| **Forensics**| OpenCV (`opencv-python-headless`) | >=4.8.0 | ELA for tampering, Laplacian Blur, FFT Moiré pattern detection |
 | **Security** | slowapi, bcrypt, html | 0.1.9, >=4.0.0 | Rate limiting, password hashing, XSS escape |
-| **Hosting** | Vercel (UI), Render (API) | N/A | Serverless edge & containerized deployments |
+| **Hosting** | Vercel (UI), Render (API) | Cloud | Serverless edge & containerized deployments |
 
 ---
 
@@ -106,15 +108,16 @@ PramanaChain/
 │   │   │   └── security.py     # API key verification logic
 │   │   ├── utils/
 │   │   │   ├── db_client.py    # MongoDB Ledger operations
-│   │   │   ├── crypto_signer.py# ECDSA key generation + signing
-│   │   │   ├── ela_detector.py # Error Level Analysis + heuristics
+│   │   │   ├── crypto_signer.py# ECDSA (SECP256R1) signing
+│   │   │   ├── ela_detector.py # OpenCV Error Level Analysis & Blur/Moiré Checks
 │   │   │   ├── hashing.py      # SHA-256 content hashing
-│   │   │   └── ml_classifier.py# HuggingFace API wrapper
+│   │   │   ├── ml_classifier.py# HuggingFace & Custom Model pipeline
+│   │   │   └── ocr_processor.py# OCR.space API and PyTesseract fallback
 │   │   └── models/
 │   │       └── document.py     # Pydantic document schemas
 │   ├── tests/                  # Pytest suite
 │   │   └── test_api.py         # Security tests (CORS, rate limits)
-│   └── requirements.txt        # Loosely pinned dependencies for Render builds
+│   └── requirements.txt        # Backend dependencies
 ├── frontend/
 │   └── src/app/                # Next.js 14 App Router
 │       ├── page.tsx            # Landing page
