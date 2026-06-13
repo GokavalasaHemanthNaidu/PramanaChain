@@ -555,7 +555,8 @@ def get_training_status():
             "learning_active": True,
         }
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        logger.error(f"Training status failed: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 if __name__ == "__main__":
     import uvicorn
