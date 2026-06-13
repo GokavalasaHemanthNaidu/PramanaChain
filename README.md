@@ -114,9 +114,9 @@ PramanaChain/
 | Method | Path | Rate Limit | Auth Required | Purpose |
 |--------|------|------------|---------------|---------|
 | `GET`  | `/` | 60/min | No | Health check & MongoDB ping |
-| `POST` | `/api/v1/documents/analyze` | 10/min | **Yes** (`X-API-Key`) | Run full ML & Forensic pipeline |
-| `POST` | `/api/v1/documents/sign` | 10/min | **Yes** (`X-API-Key`) | Cryptographically sign document hash |
-| `GET`  | `/api/v1/documents/verify/{did}` | 60/min | No | Public verification portal |
+| `POST` | `/api/upload` | 10/min | **Yes** (`X-API-Key`) | Run full ML, Forensic pipeline, & Anchoring |
+| `POST` | `/api/verify/image` | 10/min | **Yes** (`X-API-Key`) | Verify image forensics & ledger signature |
+| `GET`  | `/api/verify?query=` | 60/min | No | Public verification portal |
 
 ## 🧠 What I Learned
 
