@@ -12,9 +12,9 @@ pytesseract==0.3.10
 cryptography==41.0.0
 python-dotenv==1.0.0
 Pillow==10.0.0
-opencv-python-headless==4.8.0.76
+opencv-python-headless>=4.8.0
 qrcode[pil]==7.4.2
 fpdf2==2.7.5
 validators==0.22.0
 requests==2.31.0
-slowapi==0.1.28
+slowapi==0.1.9
