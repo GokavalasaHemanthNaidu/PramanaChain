@@ -1,13 +1,19 @@
+<div align="center">
+
+<img src="https://img.shields.io/badge/Blockchain-Document%20Verification-8A2BE2?style=for-the-badge&logo=chainlink&logoColor=white" alt="PramanaChain"/>
+
 # 🔐 PramanaChain (Visual Document Trust Chain)
 
-> **A resilient, multi-layer document forensics and cryptographic ledger system designed to prevent identity fraud through cross-validated AI and unforgeable ECDSA signatures.**
+### *A resilient, multi-layer document forensics and cryptographic ledger system*
 
-[![Frontend: Next.js 14](https://img.shields.io/badge/Frontend-Next.js_14-black?logo=next.js)](https://nextjs.org/)
-[![Backend: FastAPI](https://img.shields.io/badge/Backend-FastAPI_0.110.0-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
-[![Cryptography: SECP256R1](https://img.shields.io/badge/Crypto-SECP256R1-blue)](https://cryptography.io/)
-[![Status: Prototype](https://img.shields.io/badge/Status-Prototype-orange)]()
+[![Frontend: Next.js 14](https://img.shields.io/badge/Frontend-Next.js_14-black?style=flat-square&logo=next.js)](https://nextjs.org/)
+[![Backend: FastAPI](https://img.shields.io/badge/Backend-FastAPI_0.110.0-009688?style=flat-square&logo=fastapi)](https://fastapi.tiangolo.com/)
+[![Cryptography: SECP256R1](https://img.shields.io/badge/Crypto-SECP256R1-8A2BE2?style=flat-square)](https://cryptography.io/)
+[![Status: Prototype](https://img.shields.io/badge/Status-Completed-9400D3?style=flat-square)]()
 
 **Live Demo:** [https://pramanachain.vercel.app](https://pramanachain.vercel.app)
+
+</div>
 
 ---
 
