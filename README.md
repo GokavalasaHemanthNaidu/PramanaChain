@@ -40,11 +40,22 @@ PramanaChain operates on a **graceful degradation / fallback architecture**. Bec
 [ Layer 5: Donut VQA ] (Extracts Names, Dates via Generative AI)
         │
         ▼
-[ Cryptographic Signer ] (SHA-256 Hash + ECDSA SECP256R1 Signature)
+[ Cryptographic Notary ] (SHA-256 Hash + ECDSA SECP256R1 Signature)
+        │
+        ▼
+[ Cryptographic Vault ] (AES-256 Encryption at Rest)
         │
         ▼
 [ MongoDB Immutable Ledger ]
 ```
+
+## 🔐 The Cryptographic POV (Security-First Design)
+
+PramanaChain goes beyond simple fraud detection by implementing a true enterprise security architecture designed around three core pillars:
+
+1. **Integrity (SHA-256):** Generates an immutable mathematical fingerprint of the document. If a fraudster alters even a single pixel, the hash completely changes, exposing the forgery.
+2. **Authenticity (ECDSA):** Every verified transaction is digitally signed using Elliptic Curve Cryptography (SECP256R1), creating an undeniable, mathematically verifiable audit trail of *who* verified the document and *when*.
+3. **Confidentiality (AES-256):** To meet strict KYC and PII compliance regulations, verified documents are locked via AES-256 encryption at rest before entering the database. Even in the event of a total database breach, the sensitive identity data remains mathematically secure.
 
 ## 💻 Tech Stack
 
